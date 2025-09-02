@@ -1,0 +1,37 @@
+{% extends "portal/base_portal.html" %}
+{% block title %}Dashboard · Client Portal{% endblock %}
+{% block content %}
+  <h3 class="mb-3">Welcome{% if org %}, {{ org.name }}{% endif %}</h3>
+
+  <div class="row g-4">
+    <div class="col-md-7">
+      <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <strong>Recent Tickets</strong>
+          <a class="nav-link" href="{% url 'portal:ticket_create' %}">New Ticket</a>
+        </div>
+        <ul class="list-group list-group-flush">
+          {% for t in my_open_tickets %}
+            <li class="list-group-item">
+              <div class="fw-semibold">#{{ t.id }} · {{ t.subject }}</div>
+              <div class="text-muted small">{{ t.get_status_display }} · {{ t.created_at|date:"Y-m-d H:i" }}</div>
+            </li>
+          {% empty %}
+            <li class="list-group-item text-muted">No tickets yet.</li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+
+    <div class="col-md-5">
+      <div class="card">
+        <div class="card-header"><strong>Policies</strong></div>
+        <div class="card-body">
+          {% comment %} If you pass policies in context, render them here {% endcomment %}
+          <p class="text-muted mb-0">Your service policies will appear here.</p>
+          <a class="btn btn-link p-0 mt-2" href="{% url 'portal:policy' %}">View all</a>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}

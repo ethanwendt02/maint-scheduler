@@ -1,0 +1,302 @@
+/* ===========================================================
+   Field AI Admin — Full Theme Override (Django 5.x)
+   Palette:
+     bg        #101214  /  #141414
+     surface   #1b1f23  /  #21262b
+     border    #2b3036
+     text      #ffffff
+     mutetxt   #c7c7c7
+     accent    #ff7a00
+   =========================================================== */
+
+/* --- variables (also used to override Django CSS custom props) --- */
+:root {
+  /* brand */
+  --fa-accent: #ff7a00;
+  --fa-bg: #101214;
+  --fa-surface: #1b1f23;
+  --fa-surface-2: #21262b;
+  --fa-border: #2b3036;
+  --fa-text: #ffffff;
+  --fa-muted: #c7c7c7;
+
+  /* map to Django admin tokens to kill the default blue/gray */
+  --primary: var(--fa-accent);
+  --secondary: var(--fa-surface-2);
+
+  --body-bg: var(--fa-bg);
+  --body-fg: var(--fa-text);
+
+  --hairline-color: var(--fa-border);
+  --border-color: var(--fa-border);
+
+  --link-fg: var(--fa-accent);
+  --link-hover-color: #ffa559;
+  --link-selected-fg: var(--fa-accent);
+
+  --header-bg: var(--fa-surface);
+  --header-fg: var(--fa-text);
+  --header-link-color: var(--fa-text);
+  --header-branding-color: var(--fa-text);
+
+  --breadcrumbs-bg: var(--fa-surface);
+  --breadcrumbs-fg: var(--fa-muted);
+  --breadcrumbs-link-fg: var(--fa-text);
+
+  --default-button-bg: var(--fa-accent);
+  --default-button-hover-bg: #ffa559;
+  --button-bg: var(--fa-surface-2);
+  --button-hover-bg: #2a2f35;
+  --button-fg: var(--fa-text);
+  --close-button-bg: var(--fa-surface-2);
+  --close-button-hover-bg: #2a2f35;
+  --close-button-fg: var(--fa-text);
+
+  --selected-bg: #1e1f23;  /* list row selected */
+}
+
+/* --- global base --- */
+html, body {
+  background: var(--fa-bg) !important;
+  color: var(--fa-text) !important;
+}
+
+/* kill any old link colors */
+a, a:link, a:visited {
+  color: var(--fa-accent) !important;
+}
+a:hover, a:focus {
+  color: var(--link-hover-color) !important;
+}
+
+/* thin scrollbars in dark */
+* {
+  scrollbar-color: var(--fa-surface-2) var(--fa-bg);
+}
+
+/* --- top header bar --- */
+#header {
+  background: var(--header-bg) !important;
+  color: var(--header-fg) !important;
+  border-bottom: 2px solid var(--fa-accent) !important;
+}
+#header a, #header a:link, #header a:visited {
+  color: var(--header-link-color) !important;
+}
+#branding h1, #branding h1 a {
+  color: var(--header-branding-color) !important;
+}
+
+/* --- breadcrumbs bar --- */
+div.breadcrumbs {
+  background: var(--breadcrumbs-bg) !important;
+  color: var(--breadcrumbs-fg) !important;
+  border-bottom: 1px solid var(--fa-border) !important;
+}
+div.breadcrumbs a {
+  color: var(--breadcrumbs-link-fg) !important;
+}
+
+/* --- sidebar (recent Django has a filters/aside on some pages) --- */
+#content-related,
+#changelist-filter {
+  background: var(--fa-surface) !important;
+  color: var(--fa-text) !important;
+  border: 1px solid var(--fa-border) !important;
+  border-radius: 8px !important;
+}
+#changelist-filter h2,
+#content-related h2 {
+  background: transparent !important;
+  color: var(--fa-text) !important;
+  border-bottom: 1px solid var(--fa-border) !important;
+}
+
+/* --- module blocks / section headings (kills the blue bars) --- */
+.module {
+  background: var(--fa-surface) !important;
+  border: 1px solid var(--fa-border) !important;
+  border-radius: 10px !important;
+}
+.module caption,
+.module h2,
+.inline-group h2 {
+  background: #141414 !important;
+  color: var(--fa-text) !important;
+  border-bottom: 1px solid var(--fa-accent) !important;
+  border-radius: 8px 8px 0 0 !important;
+  padding: 8px 12px !important;
+}
+
+/* “app list” on index */
+.dashboard #content .module h2 {
+  border: 1px solid var(--fa-accent) !important;
+  border-radius: 8px !important;
+  background: #141414 !important;
+}
+
+/* --- cards on index (Recent actions) --- */
+#content .dashboard .module,
+#content .dashboard .module ul.actionlist {
+  background: var(--fa-surface) !important;
+  color: var(--fa-text) !important;
+}
+#content .dashboard .module ul.actionlist li {
+  border-bottom: 1px solid var(--fa-border) !important;
+}
+
+/* --- forms (add/change) --- */
+.form-row, .fieldBox, .aligned label {
+  color: var(--fa-text) !important;
+}
+input, select, textarea {
+  background: var(--fa-surface-2) !important;
+  color: var(--fa-text) !important;
+  border: 1px solid var(--fa-border) !important;
+  border-radius: 6px !important;
+}
+input:focus, select:focus, textarea:focus {
+  outline: none !important;
+  border-color: var(--fa-accent) !important;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--fa-accent) 35%, transparent) !important;
+}
+
+/* inline formsets */
+.inline-group .module {
+  background: var(--fa-surface) !important;
+}
+.inline-group .module h2 {
+  border: 1px solid var(--fa-accent) !important;
+}
+
+/* --- buttons --- */
+.button, button, input[type=submit], .submit-row input,
+a.button {
+  background: var(--button-bg) !important;
+  color: var(--button-fg) !important;
+  border: 1px solid var(--fa-border) !important;
+  border-radius: 8px !important;
+}
+.button:hover, button:hover, input[type=submit]:hover, a.button:hover {
+  background: var(--button-hover-bg) !important;
+  border-color: var(--fa-accent) !important;
+}
+.submit-row .default, .submit-row input.default {
+  background: var(--default-button-bg) !important;
+  border-color: var(--fa-accent) !important;
+  color: #111 !important;
+}
+.submit-row .default:hover {
+  background: var(--default-button-hover-bg) !important;
+}
+
+/* submit row container */
+.submit-row {
+  background: var(--fa-surface) !important;
+  border-top: 1px solid var(--fa-border) !important;
+}
+
+/* --- tables / changelist --- */
+#changelist, .change-list, .results, .results table,
+table#result_list {
+  background: var(--fa-surface) !important;
+  color: var(--fa-text) !important;
+  border: 1px solid var(--fa-border) !important;
+  border-radius: 8px !important;
+}
+#changelist .paginator {
+  background: var(--fa-surface) !important;
+  color: var(--fa-muted) !important;
+  border-top: 1px solid var(--fa-border) !important;
+}
+table#result_list thead th,
+.results thead th {
+  background: #141414 !important;
+  color: var(--fa-text) !important;
+  border-bottom: 1px solid var(--fa-border) !important;
+}
+table#result_list tbody tr {
+  background: var(--fa-surface) !important;
+}
+table#result_list tbody tr:nth-child(even) {
+  background: #191c1f !important;
+}
+table#result_list tbody tr:hover {
+  background: #202428 !important;
+}
+table#result_list tbody tr.selected {
+  background: var(--selected-bg) !important;
+}
+
+/* actions row (bulk actions) */
+#changelist .actions {
+  background: var(--fa-surface) !important;
+  border: 1px solid var(--fa-border) !important;
+}
+
+/* search bar / filters row */
+#changelist-search, .search-bar {
+  background: var(--fa-surface) !important;
+  border: 1px solid var(--fa-border) !important;
+  border-radius: 8px !important;
+}
+#changelist-search input[type="text"] {
+  background: var(--fa-surface-2) !important;
+  color: var(--fa-text) !important;
+  border: 1px solid var(--fa-border) !important;
+}
+
+/* --- messages / alerts --- */
+ul.messagelist li {
+  background: #122318 !important; /* subtle dark green for success */
+  border: 1px solid #1d7a40 !important;
+  color: #b8f5cf !important;
+}
+ul.messagelist li.warning {
+  background: #2a1d00 !important;
+  border: 1px solid var(--fa-accent) !important;
+  color: #ffd7b0 !important;
+}
+ul.messagelist li.error {
+  background: #2a1212 !important;
+  border: 1px solid #c95555 !important;
+  color: #ffd2d2 !important;
+}
+
+/* --- login screen --- */
+.login #container {
+  background: var(--fa-surface) !important;
+  border: 1px solid var(--fa-accent) !important;
+  border-radius: 10px !important;
+}
+.login #header {
+  border-bottom: none !important;
+}
+.login .submit-row input[type=submit] {
+  background: var(--default-button-bg) !important;
+  border-color: var(--fa-accent) !important;
+  color: #111 !important;
+}
+.login .submit-row input[type=submit]:hover {
+  background: var(--default-button-hover-bg) !important;
+}
+
+/* --- footer --- */
+#footer {
+  background: var(--fa-bg) !important;
+  color: var(--fa-muted) !important;
+  border-top: 1px solid var(--fa-border) !important;
+}
+
+/* --- small polish --- */
+hr, .rule, .line, .selector-available h2, .selector-chosen h2 {
+  border-color: var(--fa-border) !important;
+}
+.help, .help-tooltip, .helptext {
+  color: var(--fa-muted) !important;
+}
+.selector .selector-chosen, .selector .selector-available {
+  background: var(--fa-surface) !important;
+  border-color: var(--fa-border) !important;
+}
+

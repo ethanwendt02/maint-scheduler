@@ -1,0 +1,10 @@
+model: policies.maintenancepolicy
+pk: 1
+fields:
+name: Falcon28 @ Excyte – 90‑day cleaning
+type: time
+scope: {model: "Falcon28", site: "Excyte"}
+interval_days: 90
+window_days: 10
+priority: P2
+checklist_id: clean-fans-v1

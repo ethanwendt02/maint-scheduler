@@ -1,0 +1,35 @@
+{% extends "portal/base_portal.html" %}
+
+{% block title %}Policy{% endblock %}
+
+{% block content %}
+  <h3 class="mb-3">Maintenance Policy</h3>
+
+  {% if policy %}
+    <!-- If your Policy model has a rich text field like `body` or `content`, adjust below -->
+    <div class="card mb-3">
+      <div class="card-body">
+        {{ policy.body|default:policy.content|safe }}
+      </div>
+    </div>
+  {% else %}
+    <div class="alert alert-info">
+      No policy has been published for your organization yet.
+    </div>
+  {% endif %}
+
+  {% if org %}
+    <div class="card">
+      <div class="card-header"><strong>Contact</strong></div>
+      <div class="card-body">
+        <p class="mb-1"><strong>Organization:</strong> {{ org.name }}</p>
+        {% if org.support_email %}
+          <p class="mb-1"><strong>Email:</strong> <a href="mailto:{{ org.support_email }}">{{ org.support_email }}</a></p>
+        {% endif %}
+        {% if org.support_phone %}
+          <p class="mb-0"><strong>Phone:</strong> {{ org.support_phone }}</p>
+        {% endif %}
+      </div>
+    </div>
+  {% endif %}
+{% endblock %}

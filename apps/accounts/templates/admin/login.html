@@ -1,0 +1,28 @@
+{% extends "admin/base_site.html" %}
+{% load static i18n %}
+
+{% block content %}
+  <div class="module" style="max-width:420px;margin:40px auto;padding:24px;">
+    <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:8px;">
+      <img src="{% static 'images/logo.png' %}" class="fieldai-logo" alt="Field AI">
+      <strong>Sign in</strong>
+    </div>
+    {{ form.errors }}
+    <form action="{% url 'admin:login' %}" method="post" id="login-form">
+      {% csrf_token %}
+      <div class="form-row">
+        <label class="required" for="{{ form.username.id_for_label }}">{% trans 'Username' %}:</label>
+        {{ form.username }}
+      </div>
+      <div class="form-row">
+        <label class="required" for="{{ form.password.id_for_label }}">{% trans 'Password' %}:</label>
+        {{ form.password }}
+      </div>
+      <div class="submit-row">
+        <input type="submit" value="{% trans 'Log in' %}">
+        <input type="hidden" name="next" value="{{ next }}">
+      </div>
+    </form>
+  </div>
+{% endblock %}
+

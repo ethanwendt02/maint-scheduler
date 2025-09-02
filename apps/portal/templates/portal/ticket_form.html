@@ -1,0 +1,40 @@
+{% extends "portal/base_portal.html" %}
+{% block title %}New Ticket{% endblock %}
+
+{% block content %}
+  <h3 class="mb-3">Create a ticket</h3>
+
+  <form method="post" enctype="multipart/form-data" novalidate>
+    {% csrf_token %}
+
+    <div class="mb-3">
+      <label for="{{ form.subject.id_for_label }}" class="form-label">Subject</label>
+      {{ form.subject }}
+      {% if form.subject.errors %}<div class="text-danger small">{{ form.subject.errors }}</div>{% endif %}
+    </div>
+
+    <div class="mb-3">
+      <label for="{{ form.description.id_for_label }}" class="form-label">Description</label>
+      {{ form.description }}
+      {% if form.description.errors %}<div class="text-danger small">{{ form.description.errors }}</div>{% endif %}
+    </div>
+
+    <div class="mb-3">
+      <label for="{{ form.priority.id_for_label }}" class="form-label">Priority</label>
+      {{ form.priority }}
+      {% if form.priority.errors %}<div class="text-danger small">{{ form.priority.errors }}</div>{% endif %}
+    </div>
+
+    <div class="mb-3">
+      <label for="{{ form.attachment.id_for_label }}" class="form-label">Attachment (optional)</label>
+      {{ form.attachment }}
+      {% if form.attachment.errors %}<div class="text-danger small">{{ form.attachment.errors }}</div>{% endif %}
+    </div>
+
+    <div class="d-flex gap-2">
+      <button class="btn btn-dark" type="submit">Submit</button>
+      <a class="btn btn-outline-secondary" href="{% url 'portal:tickets' %}">Cancel</a>
+    </div>
+  </form>
+{% endblock %}
+

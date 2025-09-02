@@ -1,0 +1,10 @@
+{% extends "portal/base_portal.html" %}
+{% block title %}Contact · Client Portal{% endblock %}
+{% block content %}
+<h3 class="mb-3">Contact</h3>
+<p class="mb-1">If you need help, please contact:</p>
+<ul>
+  {% if org.support_email %}<li>Email: {{ org.support_email }}</li>{% endif %}
+  {% if org.support_phone %}<li>Phone: {{ org.support_phone }}</li>{% endif %}
+</ul>
+{% endblock %}

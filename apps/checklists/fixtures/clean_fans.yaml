@@ -1,0 +1,13 @@
+model: checklists.checklisttemplate
+pk: 1
+fields:
+checklist_id: clean-fans-v1
+name: Falcon28 Cleaning
+version: v1
+items:
+- { id: loto, label: "Lockout/tagout completed", required: true, type: checkbox }
+- { id: open_payload, label: "Open payload compartment", required: true, type: checkbox }
+- { id: clean_fans, label: "Clean fans & filters", required: true, type: checkbox }
+- { id: calibrate, label: "Calibrate robot", required: false, type: checkbox }
+- { id: notes, label: "Notes", required: false, type: textarea }
+requires_photos: true

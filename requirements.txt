@@ -1,0 +1,13 @@
+django>=5.0
+psycopg[binary]
+djangorestframework
+celery[redis]
+django-filter
+python-dateutil
+ics
+pytz
+requests
+python-dotenv
+gunicorn
+whitenoise
+dj-database-url

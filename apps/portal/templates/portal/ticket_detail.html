@@ -1,0 +1,51 @@
+{% extends "portal/base_portal.html" %}
+{% block title %}Ticket #{{ ticket.id }}{% endblock %}
+
+{% block content %}
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h3>#{{ ticket.id }} — {{ ticket.subject }}</h3>
+    <a class="btn btn-outline-secondary" href="{% url 'portal:tickets' %}">Back to list</a>
+  </div>
+
+  <div class="card mb-3">
+    <div class="card-body">
+      <p class="mb-1"><strong>Status:</strong> {{ ticket.get_status_display }}</p>
+      <p class="mb-1"><strong>Priority:</strong> {{ ticket.get_priority_display }}</p>
+      <p class="mb-1"><strong>Created:</strong> {{ ticket.created_at|date:"Y-m-d H:i" }}</p>
+      <p class="mb-1"><strong>By:</strong> {{ ticket.created_by }}</p>
+
+      <hr>
+      <p class="mb-0" style="white-space:pre-wrap;">{{ ticket.description }}</p>
+
+      {% if ticket.attachment %}
+        <hr>
+        <a class="btn btn-sm btn-outline-dark" href="{{ ticket.attachment.url }}" target="_blank">Download attachment</a>
+      {% endif %}
+    </div>
+  </div>
+
+  <h5 class="mb-2">Comments</h5>
+  <div class="list-group mb-3">
+    {% for c in ticket.comments.all %}
+      <div class="list-group-item">
+        <div class="d-flex justify-content-between">
+          <strong>{{ c.author }}</strong>
+          <small>{{ c.created_at|date:"Y-m-d H:i" }}</small>
+        </div>
+        <div style="white-space:pre-wrap;">{{ c.body }}</div>
+      </div>
+    {% empty %}
+      <div class="list-group-item text-muted">No comments yet.</div>
+    {% endfor %}
+  </div>
+
+  <form method="post" class="card">
+    {% csrf_token %}
+    <div class="card-body">
+      {{ comment_form.body }}
+      <div class="mt-2">
+        <button class="btn btn-primary">Add comment</button>
+      </div>
+    </div>
+  </form>
+{% endblock %}
