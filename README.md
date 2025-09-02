@@ -153,8 +153,9 @@ UI styled with Bootstrap 5 + custom branding.
 
 Admin customized via fieldai_admin.css.
 
+---
 
-##MIT License
+## MIT License
 
 Copyright (c) 2025 Field AI
 
