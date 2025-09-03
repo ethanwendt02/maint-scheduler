@@ -48,9 +48,8 @@ INSTALLED_APPS = [
     'apps.checklists',
     'apps.calendarfeed',
     'apps.notifications',
-    'apps.accounts.apps.AccountsConfig',
+    'apps.accounts',
     'apps.portal',
-    'apps.accounts.apps.AccountsConfig',
     
     'django.contrib.admin',
     'django.contrib.auth',
