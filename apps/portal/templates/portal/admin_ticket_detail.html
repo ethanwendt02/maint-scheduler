@@ -1,0 +1,27 @@
+{% extends "portal/base.html" %}
+{% block title %}Admin • Ticket #{{ ticket.id }}{% endblock %}
+{% block content %}
+<div class="container py-4">
+  <a class="btn btn-link p-0 mb-3" href="{% url 'portal:admin_ticket_list' %}">← Back to all tickets</a>
+
+  <div class="card mb-3">
+    <div class="card-header">
+      <strong>#{{ ticket.id }}</strong> • {{ ticket.subject }}
+    </div>
+    <div class="card-body">
+      <p><strong>Organization:</strong> {{ ticket.organization.name }}</p>
+      <p><strong>Created by:</strong> {{ ticket.created_by.username }}</p>
+      <p><strong>Status:</strong> {{ ticket.get_status_display }}</p>
+      <p><strong>Priority:</strong> {{ ticket.get_priority_display }}</p>
+      <p><strong>Created:</strong> {{ ticket.created_at|date:"Y-m-d H:i" }}</p>
+      <p><strong>Updated:</strong> {{ ticket.updated_at|date:"Y-m-d H:i" }}</p>
+      <hr>
+      <p style="white-space: pre-wrap">{{ ticket.description }}</p>
+      {% if ticket.attachment %}
+        <hr>
+        <p><strong>Attachment:</strong> <a href="{{ ticket.attachment.url }}" target="_blank" rel="noopener">Download</a></p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

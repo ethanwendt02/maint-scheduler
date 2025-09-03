@@ -1,0 +1,29 @@
+{% extends "portal/base.html" %}
+{% block title %}Admin • Tickets{% endblock %}
+{% block content %}
+<div class="container py-4">
+  <h3 class="mb-3">All Tickets</h3>
+  <table class="table table-sm align-middle">
+    <thead>
+      <tr>
+        <th>#</th><th>Subject</th><th>Org</th><th>Created By</th><th>Status</th><th>Priority</th><th>Created</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for t in tickets %}
+      <tr>
+        <td>{{ t.id }}</td>
+        <td><a href="{% url 'portal:admin_ticket_detail' t.id %}">{{ t.subject }}</a></td>
+        <td>{{ t.organization.name }}</td>
+        <td>{{ t.created_by.username }}</td>
+        <td>{{ t.get_status_display }}</td>
+        <td>{{ t.get_priority_display }}</td>
+        <td>{{ t.created_at|date:"Y-m-d H:i" }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="7" class="text-muted">No tickets found.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
