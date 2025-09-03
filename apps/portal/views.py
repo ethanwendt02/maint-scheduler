@@ -1,5 +1,5 @@
 # apps/portal/views.py
-from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.urls import reverse_lazy
 from django.views.generic import TemplateView, ListView, CreateView, DetailView
 from django.shortcuts import get_object_or_404, redirect
@@ -18,6 +18,18 @@ class DashboardView(LoginRequiredMixin, TemplateView):
     template_name = "portal/dashboard.html"
 
 
+class StaffRequiredMixin(UserPassesTestMixin):
+    def test_func(self):
+        # allow staff OR superuser
+        return self.request.user.is_authenticated and (
+            self.request.user.is_staff or self.request.user.is_superuser
+        )
+
+    def handle_no_permission(self):
+        from django.contrib.auth.views import redirect_to_login
+        return redirect_to_login(self.request.get_full_path())
+
+
 class TicketListView(LoginRequiredMixin, ListView):
     model = ClientTicket
     template_name = "portal/ticket_list.html"
@@ -31,6 +43,21 @@ class TicketListView(LoginRequiredMixin, ListView):
             qs = qs.filter(organization=org)
         else:
             qs = qs.none()
+        return qs
+
+
+class AdminTicketListView(StaffRequiredMixin, ListView):
+    model = ClientTicket
+    template_name = "portal/admin_ticket_list.html"
+    context_object_name = "tickets"
+    paginate_by = 25
+
+    def get_queryset(self):
+        qs = ClientTicket.objects.select_related("created_by", "organization")
+        # Optional: simple filtering by status ?status=open
+        status = self.request.GET.get("status")
+        if status:
+            qs = qs.filter(status=status)
         return qs
 
 
@@ -97,6 +124,12 @@ class TicketDetailView(LoginRequiredMixin, DetailView):
         ctx = super().get_context_data(**kwargs)
         ctx["comment_form"] = TicketCommentForm()
         return ctx
+
+
+class AdminTicketDetailView(StaffRequiredMixin, DetailView):
+    model = ClientTicket
+    template_name = "portal/admin_ticket_detail.html"
+    context_object_name = "ticket"
 
 
 class PolicyView(LoginRequiredMixin, TemplateView):
