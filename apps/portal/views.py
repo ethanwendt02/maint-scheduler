@@ -41,11 +41,26 @@ class TicketCreateView(LoginRequiredMixin, CreateView):
     success_url = reverse_lazy("portal:tickets")
 
     def form_valid(self, form):
-        org = _org_for(self.request)
-        form.instance.organization = org
-        form.instance.created_by = self.request.user
-        messages.success(self.request, "Ticket created.")
+        user = self.request.user
+        form.instance.created_by = user
+
+        # Harden: make sure the user has a ClientProfile + Organization
+        client_profile = getattr(user, "clientprofile", None)
+        if not client_profile or not getattr(client_profile, "organization", None):
+            messages.error(
+                self.request,
+                "Your account isn’t linked to an organization yet. Please contact support."
+            )
+            return redirect(self.success_url)
+
+        form.instance.organization = client_profile.organization
         return super().form_valid(form)
+
+    def form_invalid(self, form):
+        messages.error(self.request, "Please fix the errors below and try again.")
+        return super().form_invalid(form)
+
+
 
 
 class TicketDetailView(LoginRequiredMixin, DetailView):

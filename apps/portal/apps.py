@@ -5,4 +5,6 @@ class PortalConfig(AppConfig):
     name = "apps.portal"
     verbose_name = "Client Portal"
 
+def ready(self):
+    from . import signals
 
