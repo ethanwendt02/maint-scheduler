@@ -147,8 +147,23 @@ STATIC_URL = "/static/"
 STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 STATICFILES_DIRS = [BASE_DIR / "static"]  
 
+#Media Settings
+MEDIA_URL = "/media/"
+MEDIA_ROOT = os.environ.get("DJANGO_MEDIA_ROOT", os.path.join(BASE_DIR, "media"))
+
+# Storages (Django 5+)
 STORAGES = {
-     "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"}
+    # Used for user uploads (Ticket attachments, etc.)
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+        "OPTIONS": {
+            "location": MEDIA_ROOT,  # where files are saved
+        },
+    },
+    # Used for static files via Whitenoise
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
 }
 
 
@@ -162,9 +177,6 @@ LOGIN_URL = "/login/"
 LOGIN_REDIRECT_URL = "/portal/"      # after login, go here (can be /dashboard/)
 LOGOUT_REDIRECT_URL = "/login/"     # after logout, go back to login page
 
-#Media Settings
-MEDIA_URL = "/media/"
-MEDIA_ROOT = os.environ.get("DJANGO_MEDIA_ROOT", os.path.join(BASE_DIR, "media"))
 
 LOGGING = {
     "version": 1,
