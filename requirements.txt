@@ -11,3 +11,4 @@ python-dotenv
 gunicorn
 whitenoise
 dj-database-url
+Pillow==10.4.0
