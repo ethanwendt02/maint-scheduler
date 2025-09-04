@@ -23,7 +23,7 @@ class Robot(models.Model):
     serial = models.CharField(max_length=60, unique=True)
     site = models.ForeignKey(Site, on_delete=models.PROTECT, null=True, blank=True)
     tier = models.CharField(max_length=4, default="P2")  # e.g., P0/P1/P2
-    environment = models.JSONField(default=dict)         # e.g., {"dusty": True}
+    environments = models.JSONField(blank=True, default=list)         # e.g., {"dusty": True}
     status = models.CharField(max_length=32, default="active")  # active, in_maintenance, retired
 
     def __str__(self) -> str:

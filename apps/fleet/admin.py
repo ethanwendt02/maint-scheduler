@@ -58,6 +58,39 @@ class SiteAdmin(admin.ModelAdmin):
 
 
 # ---------- Robot (your existing admin) ----------
+class RobotAdminForm(forms.ModelForm):
+    environments_text = forms.CharField(
+        required=False,
+        label="Environments",
+        help_text="Comma-separated environments (e.g., indoor, warehouse, wet).",
+    )
+
+    class Meta:
+        model = Robot
+        # include your real fields; key point is to expose environments_text, not raw environments
+        fields = ["model", "serial", "site", "tier", "status", "environments_text"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        current = self.instance.environments or []
+        if isinstance(current, list):
+            self.fields["environments_text"].initial = ", ".join(current)
+        elif isinstance(current, dict):
+            # only if you ever switch to dict storage
+            self.fields["environments_text"].initial = ", ".join(f"{k}:{v}" for k, v in current.items())
+
+    def clean(self):
+        cleaned = super().clean()
+        text = (cleaned.get("environments_text") or "").strip()
+        cleaned["environments"] = [t.strip() for t in text.split(",") if t.strip()] if text else []
+        return cleaned
+
+    def save(self, commit=True):
+        obj = super().save(commit=False)
+        obj.environments = self.cleaned_data.get("environments", [])
+        if commit:
+            obj.save()
+        return obj
 
 @admin.register(Robot)
 class RobotAdmin(admin.ModelAdmin):
