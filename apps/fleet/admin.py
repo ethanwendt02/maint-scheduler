@@ -94,10 +94,11 @@ class RobotAdminForm(forms.ModelForm):
 
 @admin.register(Robot)
 class RobotAdmin(admin.ModelAdmin):
-    # keep your previous settings; tweak names to your model
-    list_display = ("model", "serial", "site", "tier", "status")
-    list_filter = ("site", "tier", "status", "model")
-    search_fields = ("serial", "model", "site__name")
-    autocomplete_fields = ("site",)
-    ordering = ("model", "serial")
+    form = RobotAdminForm
+        exclude = ["environments"]  # hide the raw JSON field
+        list_display = ("model", "serial", "site", "tier", "status")
+        list_filter = ("site", "tier", "status", "model")
+        search_fields = ("serial", "model", "site__name")
+        autocomplete_fields = ("site",)
+        ordering = ("model", "serial")
 
