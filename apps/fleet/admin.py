@@ -2,12 +2,10 @@
 from django.contrib import admin
 from django import forms
 
-from .models import Site, Robot   # ← import both models
+from .models import Site, Robot
 
-# ---------- Site (friendly Flags) ----------
-
+# ---------- Site (as you already had) ----------
 class SiteAdminForm(forms.ModelForm):
-    # human-friendly text box instead of raw JSON
     flags_text = forms.CharField(
         required=False,
         label="Flags",
@@ -16,7 +14,7 @@ class SiteAdminForm(forms.ModelForm):
 
     class Meta:
         model = Site
-        fields = ["name", "tz", "address", "flags_text"]  # ← do not expose 'flags' raw
+        fields = ["name", "tz", "address", "flags_text"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -24,17 +22,12 @@ class SiteAdminForm(forms.ModelForm):
         if isinstance(current, list):
             self.fields["flags_text"].initial = ", ".join(current)
         elif isinstance(current, dict):
-            # only if you ever switch flags to dict, show key:value pairs
             self.fields["flags_text"].initial = ", ".join(f"{k}:{v}" for k, v in current.items())
 
     def clean(self):
         cleaned = super().clean()
         text = (cleaned.get("flags_text") or "").strip()
-        if text:
-            # "a, b, c" → ["a","b","c"]
-            cleaned["flags"] = [t.strip() for t in text.split(",") if t.strip()]
-        else:
-            cleaned["flags"] = []
+        cleaned["flags"] = [t.strip() for t in text.split(",") if t.strip()] if text else []
         return cleaned
 
     def save(self, commit=True):
@@ -44,20 +37,16 @@ class SiteAdminForm(forms.ModelForm):
             obj.save()
         return obj
 
-class RobotInline(admin.TabularInline):
-    model = Robot
-    extra = 0
-    autocomplete_fields = ("site",)
 
 @admin.register(Site)
 class SiteAdmin(admin.ModelAdmin):
     form = SiteAdminForm
-    exclude = ["flags"]  # hide raw JSON field
+    exclude = ["flags"]
     list_display = ("name", "tz")
     search_fields = ("name", "tz", "address")
 
 
-# ---------- Robot (your existing admin) ----------
+# ---------- Robot (friendly environments) ----------
 class RobotAdminForm(forms.ModelForm):
     environments_text = forms.CharField(
         required=False,
@@ -67,7 +56,6 @@ class RobotAdminForm(forms.ModelForm):
 
     class Meta:
         model = Robot
-        # include your real fields; key point is to expose environments_text, not raw environments
         fields = ["model", "serial", "site", "tier", "status", "environments_text"]
 
     def __init__(self, *args, **kwargs):
@@ -76,7 +64,6 @@ class RobotAdminForm(forms.ModelForm):
         if isinstance(current, list):
             self.fields["environments_text"].initial = ", ".join(current)
         elif isinstance(current, dict):
-            # only if you ever switch to dict storage
             self.fields["environments_text"].initial = ", ".join(f"{k}:{v}" for k, v in current.items())
 
     def clean(self):
@@ -92,13 +79,14 @@ class RobotAdminForm(forms.ModelForm):
             obj.save()
         return obj
 
+
 @admin.register(Robot)
 class RobotAdmin(admin.ModelAdmin):
     form = RobotAdminForm
-        exclude = ["environments"]  # hide the raw JSON field
-        list_display = ("model", "serial", "site", "tier", "status")
-        list_filter = ("site", "tier", "status", "model")
-        search_fields = ("serial", "model", "site__name")
-        autocomplete_fields = ("site",)
-        ordering = ("model", "serial")
+    exclude = ["environments"]  # hide the raw JSON field
+    list_display = ("model", "serial", "site", "tier", "status")
+    list_filter = ("site", "tier", "status", "model")
+    search_fields = ("serial", "model", "site__name")
+    autocomplete_fields = ("site",)
+    ordering = ("model", "serial")
 
