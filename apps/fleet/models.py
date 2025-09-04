@@ -8,7 +8,7 @@ class Site(models.Model):
     name = models.CharField(max_length=120)
     tz = models.CharField(max_length=64, default="UTC")
     address = models.TextField(blank=True)
-    flags = models.JSONField(default=dict)  # e.g., {"dusty": True}
+    flags = models.JSONField(blank=True, default=list)  # e.g., {"dusty": True}
     slack_channel = models.CharField(max_length=120, blank=True)
 
     def __str__(self) -> str:
