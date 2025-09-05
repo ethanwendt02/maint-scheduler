@@ -69,3 +69,4 @@ class NotificationLogAdmin(admin.ModelAdmin):
     list_display = ("channel", "to", "subject", "status", "created_at")
     search_fields = ("to", "subject")
 
+
