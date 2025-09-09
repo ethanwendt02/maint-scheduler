@@ -6,7 +6,9 @@ from django import forms
 @admin.register(ChecklistTemplate)
 class ChecklistTemplateAdmin(admin.ModelAdmin):
     form = ChecklistTemplateForm
-    exclude = ["items"]  # hide raw JSON
+    exclude = ("items",)  # hide the raw JSON/list field
+    list_display = ("checklist_id", "name", "version", "requires_photos")
+    search_fields = ("checklist_id", "name")
 
 
 @admin.register(ChecklistRun)
