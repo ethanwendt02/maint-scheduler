@@ -39,7 +39,7 @@ class ChecklistRun(models.Model):
     photos     = models.JSONField(default=list, blank=True)
     notes      = models.TextField(blank=True)
     signed_by  = models.ForeignKey('auth.User', null=True, blank=True, on_delete=models.SET_NULL)
-    updated_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self) -> str:
         return f"ChecklistRun for WO#{self.work_order.id}"
