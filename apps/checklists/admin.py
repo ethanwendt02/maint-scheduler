@@ -3,20 +3,6 @@ from .models import ChecklistTemplate, ChecklistRun
 from django import forms
 
 
-@admin.register(ChecklistTemplate)
-class ChecklistTemplateAdmin(admin.ModelAdmin):
-    form = ChecklistTemplateForm
-    exclude = ("items",)  # hide the raw JSON/list field
-    list_display = ("checklist_id", "name", "version", "requires_photos")
-    search_fields = ("checklist_id", "name")
-
-
-@admin.register(ChecklistRun)
-class ChecklistRunAdmin(admin.ModelAdmin):
-    form = ChecklistRunForm
-    exclude = ["responses", "photos"]
-
-
 class ChecklistTemplateForm(forms.ModelForm):
     items_text = forms.CharField(
         required=False,
@@ -86,3 +72,19 @@ class ChecklistRunForm(forms.ModelForm):
         if commit:
             obj.save()
         return obj
+
+
+@admin.register(ChecklistTemplate)
+class ChecklistTemplateAdmin(admin.ModelAdmin):
+    form = ChecklistTemplateForm
+    exclude = ("items",)  # hide the raw JSON/list field
+    list_display = ("checklist_id", "name", "version", "requires_photos")
+    search_fields = ("checklist_id", "name")
+
+
+@admin.register(ChecklistRun)
+class ChecklistRunAdmin(admin.ModelAdmin):
+    form = ChecklistRunForm
+    exclude = ["responses", "photos"]
+
+
