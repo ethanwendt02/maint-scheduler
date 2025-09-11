@@ -25,6 +25,7 @@ class Robot(models.Model):
     tier = models.CharField(max_length=4, default="P2")  # e.g., P0/P1/P2
     environments = models.JSONField(blank=True, null=True, default=list)        # e.g., {"dusty": True}
     status = models.CharField(max_length=32, default="active")  # active, in_maintenance, retired
+    last_maintained = models.DateField(null=True, blank=True)  # NEW
 
     def __str__(self) -> str:
         return f"{self.model}#{self.serial}"
