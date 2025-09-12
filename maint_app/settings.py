@@ -47,7 +47,6 @@ INSTALLED_APPS = [
     'apps.workorders',
     'apps.checklists',
     'apps.calendarfeed',
-    'apps.notifications',
     'apps.accounts',
     'apps.portal',
     'apps.notifications.apps.NotificationsConfig',
