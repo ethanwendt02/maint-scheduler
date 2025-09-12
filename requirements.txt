@@ -12,3 +12,4 @@ gunicorn
 whitenoise
 dj-database-url
 Pillow==10.4.0
+slack_sdk>=3.27.1
