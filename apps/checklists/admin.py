@@ -31,10 +31,10 @@ class ChecklistTemplateForm(forms.ModelForm):
 
     def clean(self):
         cleaned = super().clean()
-        items = [l.strip() for l in cleaned.get("items_text", "").splitlines() if l.strip()]
-        kit   = [l.strip() for l in cleaned.get("kit_text", "").splitlines() if l.strip()]
-        cleaned["items"] = items
-        cleaned["kit"]   = kit
+        items_lines = cleaned.get("items_text", "").splitlines()
+        kit_lines   = cleaned.get("kit_text", "").splitlines()
+        cleaned["items"] = [s.strip() for s in items_lines if s.strip()]
+        cleaned["kit"]   = [s.strip() for s in kit_lines if s.strip()]
         return cleaned
 
     def save(self, commit=True):
