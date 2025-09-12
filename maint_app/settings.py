@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     'apps.notifications',
     'apps.accounts',
     'apps.portal',
+    'apps.notifications.apps.NotificationsConfig',
     
     'django.contrib.admin',
     'django.contrib.auth',
