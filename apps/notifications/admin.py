@@ -2,7 +2,7 @@
 from django.contrib import admin
 from django import forms
 import json
-from .models import NotificationLog
+from .models import NotificationLog, STATUS_QUEUED
 
 class NotificationLogAdminForm(forms.ModelForm):
     # Human-friendly field instead of raw JSON
@@ -65,20 +65,28 @@ class NotificationLogAdminForm(forms.ModelForm):
 
 @admin.register(NotificationLog)
 class NotificationLogAdmin(admin.ModelAdmin):
-    list_display = ("channel", "to", "subject", "status", "created_at")
+    list_display = ("created_at", "channel", "to", "subject", "status", "sent_at")
+    list_filter = ("channel", "status",)
+    search_fields = ("subject", "message", "to")
     actions = ["send_now"]
 
     def save_model(self, request, obj, form, change):
         super().save_model(request, obj, form, change)
-        if obj.status == "Queued":
-            # Try to send right away so you see errors in the web logs
-            obj.send()  # your model’s send() should update status to Sent/Failed
-            obj.save(update_fields=["status", "error", "sent_at"])
+        # Auto-send if queued
+        if obj.status == STATUS_QUEUED:
+            if obj.send():
+                self.message_user(request, "Notification sent ✅")
+            else:
+                self.message_user(request, f"Notification failed: {obj.error}", level=messages.ERROR)
 
     def send_now(self, request, queryset):
+        ok = fail = 0
         for obj in queryset:
-            obj.send()
-            obj.save(update_fields=["status", "error", "sent_at"])
-    send_now.short_description = "Send selected now"
+            if obj.send(): ok += 1
+            else: fail += 1
+        if ok:  self.message_user(request, f"Sent {ok} notification(s) ✅")
+        if fail: self.message_user(request, f"{fail} failed ❌", level=messages.ERROR)
+
+    send_now.short_description = "Send now"
 
 
