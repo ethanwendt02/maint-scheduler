@@ -65,8 +65,20 @@ class NotificationLogAdminForm(forms.ModelForm):
 
 @admin.register(NotificationLog)
 class NotificationLogAdmin(admin.ModelAdmin):
-    form = NotificationLogAdminForm
     list_display = ("channel", "to", "subject", "status", "created_at")
-    search_fields = ("to", "subject")
+    actions = ["send_now"]
+
+    def save_model(self, request, obj, form, change):
+        super().save_model(request, obj, form, change)
+        if obj.status == "Queued":
+            # Try to send right away so you see errors in the web logs
+            obj.send()  # your model’s send() should update status to Sent/Failed
+            obj.save(update_fields=["status", "error", "sent_at"])
+
+    def send_now(self, request, queryset):
+        for obj in queryset:
+            obj.send()
+            obj.save(update_fields=["status", "error", "sent_at"])
+    send_now.short_description = "Send selected now"
 
 
