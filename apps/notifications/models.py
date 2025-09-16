@@ -1,9 +1,8 @@
 from django.db import models
 from django.utils import timezone
 from typing import List
-from .utils import send_slack, send_email   # uses the webhook+email helpers from step 2
+from .utils import send_slack, send_email   # make sure these exist in apps/notifications/utils.py
 
-# Canonical constants to avoid case mistakes
 CHANNEL_SLACK = "slack"
 CHANNEL_EMAIL = "email"
 
@@ -23,14 +22,13 @@ class NotificationLog(models.Model):
     ]
 
     channel = models.CharField(max_length=16, choices=CHANNEL_CHOICES)
-    to = models.CharField(max_length=255, blank=True, default="")      # email OR a Slack label (e.g., "#ops")
+    to = models.CharField(max_length=255, blank=True, default="")      # email OR Slack label like "#ops"
     subject = models.CharField(max_length=255, blank=True, default="")
     message = models.TextField(blank=True, default="")
     payload = models.JSONField(blank=True, null=True)                  # any extra context
     status = models.CharField(max_length=16, choices=STATUS_CHOICES, default=STATUS_QUEUED)
     error = models.TextField(blank=True, default="")
 
-    # Optional linkage to your domain objects
     work_order_id = models.IntegerField(blank=True, null=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
@@ -46,11 +44,10 @@ class NotificationLog(models.Model):
 
     # ---------- helpers ----------
     def _as_text_for_slack(self) -> str:
-        """Compose Slack-friendly text with bold subject on first line."""
         subj = (self.subject or "").strip()
         body = (self.message or "").strip()
         if subj and body:
-            return f"*{subj}*\n{body}"
+            return f"*{subj}*\n{body}"  # bold subject, then body
         return f"*{subj}*" if subj else body
 
     def _mark(self, status: str, error_msg: str = "") -> None:
@@ -68,11 +65,27 @@ class NotificationLog(models.Model):
         """
         try:
             if self.channel == CHANNEL_EMAIL:
-                # Basic email path. Expand send_email as needed.
                 recipients: List[str] = [e.strip() for e in (self.to or "").split(",") if e.strip()]
                 send_email(recipients, self.subject or "(no subject)", self.message or "")
                 self._mark(STATUS_SENT)
                 return True
 
             if self.channel == CHANNEL_SLACK:
-                # NOTE: with Incom
+                # NOTE: with Incoming Webhooks, the destination channel is fixed in Slack.
+                # `to` here is just a label we show in the message prefix (e.g., "#ops").
+                label = self.to.strip() if self.to else "#ops"
+                ok = send_slack(label, self._as_text_for_slack())
+                if ok:
+                    self._mark(STATUS_SENT)
+                    return True
+                else:
+                    self._mark(STATUS_FAILED, "Slack webhook failed or not configured")
+                    return False
+
+            # Unknown channel
+            self._mark(STATUS_FAILED, f"Unknown channel '{self.channel}'")
+            return False
+
+        except Exception as e:
+            self._mark(STATUS_FAILED, str(e))
+            return False
