@@ -1,25 +1,30 @@
 import os
 import requests
-from typing import List, Optional
 
 SLACK_WEBHOOK = os.getenv("SLACK_WEBHOOK")
 
-def send_slack(channel_label: str, text: str) -> bool:
+def send_slack(channel_label: str, text: str, blocks=None) -> bool:
     """
-    Send a message to Slack via Incoming Webhook.
-    `channel_label` is just a label prefix (e.g., '#ops') for clarity in the message.
-    Returns True/False for success.
+    Post to Slack via Incoming Webhook.
+    `channel_label` is just a visual prefix; webhooks always post to the channel
+    the webhook was created for.
     """
     if not SLACK_WEBHOOK:
-        return False
-    resp = requests.post(
-        SLACK_WEBHOOK,
-        json={"text": f"[{channel_label}] {text}"},
-        timeout=10,
-    )
-    return resp.ok
+        raise RuntimeError("SLACK_WEBHOOK not set")
 
-def send_email(recipients: List[str], subject: str, body: str):
-    # stub: integrate SES/SendGrid; for dev just print
+    payload = {"text": f"[{channel_label}] {text}"}
+    if blocks:
+        payload["blocks"] = blocks  # Block Kit payload
+
+    r = requests.post(SLACK_WEBHOOK, json=payload, timeout=10)
+    if not r.ok:
+        # surface Slack's response in NotificationLog.error
+        raise RuntimeError(f"Slack webhook error {r.status_code}: {r.text}")
+    return True
+
+
+# Keep your email stub/implementation as-is
+def send_email(recipients, subject, body):
     print("EMAIL:", recipients, subject, body)
+
 
