@@ -6,12 +6,17 @@ from django.urls import reverse
 from typing import List, Optional
 from .utils import send_slack, send_email
 
+# --- constants ---------------------------------------------------------------
 CHANNEL_SLACK = "slack"
 CHANNEL_EMAIL = "email"
+
 STATUS_QUEUED = "queued"
 STATUS_SENT   = "sent"
 STATUS_FAILED = "failed"
 
+DEFAULT_SLACK_LABEL = "#maintenance-scheduler"  # label prefix shown in Slack message
+
+# --- model -------------------------------------------------------------------
 class NotificationLog(models.Model):
     CHANNEL_CHOICES = [(CHANNEL_SLACK, "Slack"), (CHANNEL_EMAIL, "Email")]
     STATUS_CHOICES  = [(STATUS_QUEUED, "Queued"), (STATUS_SENT, "Sent"), (STATUS_FAILED, "Failed")]
@@ -24,19 +29,23 @@ class NotificationLog(models.Model):
     status = models.CharField(max_length=16, choices=STATUS_CHOICES, default=STATUS_QUEUED)
     error = models.TextField(blank=True, default="")
 
-    # Existing linkage
+    # Optional linkage to your domain objects
     work_order_id = models.IntegerField(blank=True, null=True)
 
-    # 🔗 NEW: deep links
-    checklist_run     = models.ForeignKey("checklists.ChecklistRun", null=True, blank=True, on_delete=models.SET_NULL)
-    checklist_template= models.ForeignKey("checklists.ChecklistTemplate", null=True, blank=True, on_delete=models.SET_NULL)
-    maintenance_policy= models.ForeignKey("policies.MaintenancePolicy", null=True, blank=True, on_delete=models.SET_NULL)
+    # 🔗 Linked records to surface in Slack
+    checklist_run      = models.ForeignKey("checklists.ChecklistRun",      null=True, blank=True, on_delete=models.SET_NULL)
+    checklist_template = models.ForeignKey("checklists.ChecklistTemplate", null=True, blank=True, on_delete=models.SET_NULL)
+    maintenance_policy = models.ForeignKey("policies.MaintenancePolicy",   null=True, blank=True, on_delete=models.SET_NULL)
 
     created_at = models.DateTimeField(auto_now_add=True)
     sent_at = models.DateTimeField(blank=True, null=True)
 
     class Meta:
         ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["channel", "status"]),
+            models.Index(fields=["created_at"]),
+        ]
 
     def __str__(self) -> str:
         tag = f"{self.channel}:{self.to or '-'}"
@@ -64,7 +73,7 @@ class NotificationLog(models.Model):
     def _as_text_for_slack(self) -> str:
         subj = (self.subject or "").strip()
         body = (self.message or "").strip()
-        lines = []
+        lines: List[str] = []
         if subj:
             lines.append(f"*{subj}*")
         if body:
@@ -76,12 +85,12 @@ class NotificationLog(models.Model):
         Build a Block Kit payload that includes links to checklist run/template/policy when present.
         Works for Incoming Webhooks and chat.postMessage alike.
         """
-        label = (self.to or "#maintenance-scheduler").strip()
-        blocks = []
+        label = (self.to or DEFAULT_SLACK_LABEL).strip()
+        blocks: list = []
 
         # Title & body
         title = (self.subject or "").strip()
-        body = (self.message or "").strip()
+        body  = (self.message or "").strip()
         if title:
             blocks.append({"type": "section", "text": {"type": "mrkdwn", "text": f"*{title}*"}})
         if body:
@@ -113,14 +122,16 @@ class NotificationLog(models.Model):
 
         # Optional: Work Order id (no FK in your model yet)
         if self.work_order_id:
-            # Admin change URL if you later add FK; for now, plain text
             fields.append({"type": "mrkdwn", "text": f"*Work Order:*\n#{self.work_order_id}"})
 
         if fields:
             blocks.append({"type": "section", "fields": fields})
 
-        # Label / context
-        blocks.append({"type": "context", "elements": [{"type": "mrkdwn", "text": f"Posted from Maintenance Scheduler • {label}"}]})
+        # Label / context footer
+        blocks.append({
+            "type": "context",
+            "elements": [{"type": "mrkdwn", "text": f"Posted from Maintenance Scheduler • {label}"}],
+        })
 
         return blocks or None
 
@@ -142,16 +153,15 @@ class NotificationLog(models.Model):
                 return True
 
             if self.channel == CHANNEL_SLACK:
-                label = (self.to or "#maintenance-scheduler").strip()
-                text = self._as_text_for_slack()
+                label  = (self.to or DEFAULT_SLACK_LABEL).strip()
+                text   = self._as_text_for_slack()
                 blocks = self._as_slack_blocks()
-                ok = send_slack(label, text, blocks=blocks)  # 🔥 now sends Block Kit
+                ok = send_slack(label, text, blocks=blocks)  # supports Block Kit via webhook
                 if ok:
                     self._mark(STATUS_SENT)
                     return True
-                else:
-                    self._mark(STATUS_FAILED, "Slack webhook failed or not configured")
-                    return False
+                self._mark(STATUS_FAILED, "Slack webhook failed or not configured")
+                return False
 
             self._mark(STATUS_FAILED, f"Unknown channel '{self.channel}'")
             return False
@@ -159,4 +169,5 @@ class NotificationLog(models.Model):
         except Exception as e:
             self._mark(STATUS_FAILED, str(e))
             return False
+
 

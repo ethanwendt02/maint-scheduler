@@ -1,5 +1,6 @@
 {% extends "portal/base_portal.html" %}
 {% block title %}Dashboard · Client Portal{% endblock %}
+
 {% block content %}
   <h3 class="mb-3">Welcome{% if org %}, {{ org.name }}{% endif %}</h3>
 
@@ -8,17 +9,81 @@
       <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
           <strong>Recent Tickets</strong>
-          <a class="nav-link" href="{% url 'portal:ticket_create' %}">New Ticket</a>
+          <div class="d-flex gap-2">
+            <a class="btn btn-sm btn-link" href="{% url 'portal:tickets' %}">View all</a>
+            <a class="btn btn-sm btn-primary" href="{% url 'portal:ticket_create' %}">New Ticket</a>
+          </div>
         </div>
+
         <ul class="list-group list-group-flush">
-          {% for t in my_open_tickets %}
-            <li class="list-group-item">
-              <div class="fw-semibold">#{{ t.id }} · {{ t.subject }}</div>
-              <div class="text-muted small">{{ t.get_status_display }} · {{ t.created_at|date:"Y-m-d H:i" }}</div>
-            </li>
-          {% empty %}
+          {# Prefer recent_tickets; otherwise fall back to other common names #}
+          {% if recent_tickets %}
+            {% for t in recent_tickets %}
+              <li class="list-group-item">
+                <div class="fw-semibold">
+                  <a href="{% url 'portal:ticket_detail' t.pk %}">
+                    #{{ t.id }} · {% firstof t.subject t.title "(no subject)" %}
+                  </a>
+                </div>
+                <div class="text-muted small">
+                  {% firstof t.get_status_display t.status %} · {{ t.created_at|date:"Y-m-d H:i" }}
+                </div>
+              </li>
+            {% empty %}
+              <li class="list-group-item text-muted">No tickets yet.</li>
+            {% endfor %}
+
+          {% elif my_open_tickets %}
+            {% for t in my_open_tickets %}
+              <li class="list-group-item">
+                <div class="fw-semibold">
+                  <a href="{% url 'portal:ticket_detail' t.pk %}">
+                    #{{ t.id }} · {% firstof t.subject t.title "(no subject)" %}
+                  </a>
+                </div>
+                <div class="text-muted small">
+                  {% firstof t.get_status_display t.status %} · {{ t.created_at|date:"Y-m-d H:i" }}
+                </div>
+              </li>
+            {% empty %}
+              <li class="list-group-item text-muted">No tickets yet.</li>
+            {% endfor %}
+
+          {% elif tickets %}
+            {% for t in tickets %}
+              <li class="list-group-item">
+                <div class="fw-semibold">
+                  <a href="{% url 'portal:ticket_detail' t.pk %}">
+                    #{{ t.id }} · {% firstof t.subject t.title "(no subject)" %}
+                  </a>
+                </div>
+                <div class="text-muted small">
+                  {% firstof t.get_status_display t.status %} · {{ t.created_at|date:"Y-m-d H:i" }}
+                </div>
+              </li>
+            {% empty %}
+              <li class="list-group-item text-muted">No tickets yet.</li>
+            {% endfor %}
+
+          {% elif object_list %}
+            {% for t in object_list %}
+              <li class="list-group-item">
+                <div class="fw-semibold">
+                  <a href="{% url 'portal:ticket_detail' t.pk %}">
+                    #{{ t.id }} · {% firstof t.subject t.title "(no subject)" %}
+                  </a>
+                </div>
+                <div class="text-muted small">
+                  {% firstof t.get_status_display t.status %} · {{ t.created_at|date:"Y-m-d H:i" }}
+                </div>
+              </li>
+            {% empty %}
+              <li class="list-group-item text-muted">No tickets yet.</li>
+            {% endfor %}
+
+          {% else %}
             <li class="list-group-item text-muted">No tickets yet.</li>
-          {% endfor %}
+          {% endif %}
         </ul>
       </div>
     </div>
@@ -27,7 +92,6 @@
       <div class="card">
         <div class="card-header"><strong>Policies</strong></div>
         <div class="card-body">
-          {% comment %} If you pass policies in context, render them here {% endcomment %}
           <p class="text-muted mb-0">Your service policies will appear here.</p>
           <a class="btn btn-link p-0 mt-2" href="{% url 'portal:policy' %}">View all</a>
         </div>
@@ -35,3 +99,4 @@
     </div>
   </div>
 {% endblock %}
+

@@ -59,3 +59,12 @@ def upload_files(
         except SlackApiError as e:
             raise RuntimeError(f"Slack files_upload_v2 failed for {fp}: {e.response.get('error')}")
     return results
+
+    # At bottom of apps/notifications/slack.py
+def send_slack(channel: Optional[str] = None,
+               text: str = "",
+               *,
+               blocks: Optional[list] = None,
+               thread_ts: Optional[str] = None) -> dict:
+    return post_message(text=text, channel=channel, blocks=blocks, thread_ts=thread_ts)
+

@@ -2,25 +2,37 @@
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.urls import reverse_lazy
 from django.views.generic import TemplateView, ListView, CreateView, DetailView
-from django.shortcuts import get_object_or_404, redirect
+from django.shortcuts import redirect
 from django.contrib import messages
 
 from .models import ClientTicket, TicketComment
 from .forms import ClientTicketForm, TicketCommentForm
 
+
 def _org_for(request):
-    # Helper: returns user's org if they have a clientprofile
     cp = getattr(request.user, "clientprofile", None)
     return cp.organization if cp else None
+
+
+def _portal_ticket_qs(request):
+    qs = ClientTicket.objects.select_related("created_by", "organization")
+    org = _org_for(request)
+    return qs.filter(organization=org) if org else qs.none()
 
 
 class DashboardView(LoginRequiredMixin, TemplateView):
     template_name = "portal/dashboard.html"
 
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["org"] = _org_for(self.request)
+        # show the same tickets as the list view (most recent first)
+        ctx["recent_tickets"] = _portal_ticket_qs(self.request).order_by("-created_at")[:5]
+        return ctx
+
 
 class StaffRequiredMixin(UserPassesTestMixin):
     def test_func(self):
-        # allow staff OR superuser
         return self.request.user.is_authenticated and (
             self.request.user.is_staff or self.request.user.is_superuser
         )
@@ -33,17 +45,10 @@ class StaffRequiredMixin(UserPassesTestMixin):
 class TicketListView(LoginRequiredMixin, ListView):
     model = ClientTicket
     template_name = "portal/ticket_list.html"
-    context_object_name = "object_list"
+    context_object_name = "object_list"  # keep if your template expects object_list
 
-    
     def get_queryset(self):
-        qs = super().get_queryset().select_related("created_by", "organization")
-        org = _org_for(self.request)
-        if org:
-            qs = qs.filter(organization=org)
-        else:
-            qs = qs.none()
-        return qs
+        return _portal_ticket_qs(self.request).order_by("-created_at")
 
 
 class AdminTicketListView(StaffRequiredMixin, ListView):
@@ -54,11 +59,8 @@ class AdminTicketListView(StaffRequiredMixin, ListView):
 
     def get_queryset(self):
         qs = ClientTicket.objects.select_related("created_by", "organization")
-        # Optional: simple filtering by status ?status=open
         status = self.request.GET.get("status")
-        if status:
-            qs = qs.filter(status=status)
-        return qs
+        return qs.filter(status=status) if status else qs
 
 
 class TicketCreateView(LoginRequiredMixin, CreateView):
@@ -71,13 +73,9 @@ class TicketCreateView(LoginRequiredMixin, CreateView):
         user = self.request.user
         form.instance.created_by = user
 
-        # Harden: make sure the user has a ClientProfile + Organization
         client_profile = getattr(user, "clientprofile", None)
         if not client_profile or not getattr(client_profile, "organization", None):
-            messages.error(
-                self.request,
-                "Your account isn’t linked to an organization yet. Please contact support."
-            )
+            messages.error(self.request, "Your account isn’t linked to an organization yet. Please contact support.")
             return redirect(self.success_url)
 
         form.instance.organization = client_profile.organization
@@ -88,42 +86,30 @@ class TicketCreateView(LoginRequiredMixin, CreateView):
         return super().form_invalid(form)
 
 
-
-
 class TicketDetailView(LoginRequiredMixin, DetailView):
     model = ClientTicket
     template_name = "portal/ticket_detail.html"
     context_object_name = "ticket"
 
     def get_queryset(self):
-        # scope to the current user's org
-        org = getattr(self.request.user, "clientprofile", None)
+        org = _org_for(self.request)
         if org:
-            return ClientTicket.objects.filter(organization=org.organization)
-        # fallback: if staff/admin, allow all
+            return ClientTicket.objects.filter(organization=org)
         if self.request.user.is_staff or self.request.user.is_superuser:
             return ClientTicket.objects.all()
         return ClientTicket.objects.none()
 
     def post(self, request, *args, **kwargs):
-        # Handle comment submission
         self.object = self.get_object()
         form = TicketCommentForm(request.POST)
         if form.is_valid():
             TicketComment.objects.create(
-                ticket=self.object,
-                author=request.user,
-                body=form.cleaned_data["body"],
+                ticket=self.object, author=request.user, body=form.cleaned_data["body"]
             )
             messages.success(request, "Comment added.")
         else:
             messages.error(request, "Please write a comment.")
         return redirect("portal:ticket_detail", pk=self.object.pk)
-
-    def get_context_data(self, **kwargs):
-        ctx = super().get_context_data(**kwargs)
-        ctx["comment_form"] = TicketCommentForm()
-        return ctx
 
 
 class AdminTicketDetailView(StaffRequiredMixin, DetailView):
@@ -137,22 +123,15 @@ class PolicyView(LoginRequiredMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        org = getattr(self.request.user, "clientprofile", None)
-        org = org.organization if org else None
+        org = _org_for(self.request)
         ctx["org"] = org
-
-        # OPTIONAL: pull a policy record if your policies app has one
-        # Adjust model/fields to match your real schema.
         try:
-            from apps.policies.models import Policy  # or whatever your model is
-            policy = None
-            if org:
-                policy = Policy.objects.filter(organization=org).order_by("-id").first()
-            ctx["policy"] = policy
+            from apps.policies.models import Policy  # adjust if your model is named differently
+            ctx["policy"] = Policy.objects.filter(organization=org).order_by("-id").first() if org else None
         except Exception:
             ctx["policy"] = None
-
         return ctx
+
 
 
 
