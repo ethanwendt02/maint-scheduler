@@ -69,7 +69,40 @@ class NotificationLog(models.Model):
         except Exception:
             return None
 
-    # ---------- Slack formatting ----------
+       # ---------- Slack formatting ----------
+    def _fmt_dt(self, dt) -> str:
+        if not dt:
+            return "—"
+        try:
+            from django.utils import timezone
+            return timezone.localtime(dt).strftime("%Y-%m-%d %H:%M")
+        except Exception:
+            return str(dt)
+
+    def _guess(self, obj, names):
+        """Try attributes/methods in order; return first non-empty value."""
+        for name in names:
+            if hasattr(obj, name):
+                val = getattr(obj, name)
+                try:
+                    return val() if callable(val) else val
+                except Exception:
+                    continue
+        return None
+
+    def _field(self, label: str, value: str) -> dict:
+        return {"type": "mrkdwn", "text": f"*{label}:*\n{value}"}
+
+    def _buttons_row(self, buttons: list[dict]) -> dict:
+        """buttons: list of {'text': 'Open Run', 'url': 'https://...'}"""
+        return {
+            "type": "actions",
+            "elements": [
+                {"type": "button", "text": {"type": "plain_text", "text": b["text"]}, "url": b["url"]}
+                for b in buttons if b.get("url")
+            ],
+        }
+
     def _as_text_for_slack(self) -> str:
         subj = (self.subject or "").strip()
         body = (self.message or "").strip()
@@ -80,10 +113,124 @@ class NotificationLog(models.Model):
             lines.append(body)
         return "\n".join(lines) or "(no content)"
 
+    def _blocks_for_run(self) -> list:
+        if not self.checklist_run_id:
+            return []
+        run = self.checklist_run  # FK is already loaded by Django when accessed
+        blocks = []
+
+        # Admin link
+        run_link = self._admin_link("checklists", "checklistrun", self.checklist_run_id, f"Run #{self.checklist_run_id}")
+
+        # Heuristic fields (adjust names if your models differ)
+        status   = self._guess(run, ["get_status_display", "status"]) or "—"
+        robot    = self._guess(run, ["robot", "device", "asset"]) or "—"
+        site     = self._guess(run, ["site", "location"]) or "—"
+        started  = self._fmt_dt(self._guess(run, ["started_at", "start_time", "created_at", "created_on"]))
+        finished = self._fmt_dt(self._guess(run, ["completed_at", "finished_at", "updated_at"]))
+
+        # Progress (try common patterns; falls back gracefully)
+        steps_total = self._guess(run, ["steps_total", "total_steps", "items_count"])
+        steps_done  = self._guess(run, ["steps_completed", "completed_steps", "done_count"])
+        progress    = "—"
+        try:
+            if isinstance(steps_total, int) and steps_total > 0 and isinstance(steps_done, int):
+                pct = int((steps_done / steps_total) * 100)
+                progress = f"{steps_done}/{steps_total} ({pct}%)"
+        except Exception:
+            pass
+
+        fields = [
+            self._field("Checklist Run", run_link or f"#{self.checklist_run_id}"),
+            self._field("Status", str(status)),
+            self._field("Robot", str(robot)),
+            self._field("Site", str(site)),
+            self._field("Started", started),
+            self._field("Completed", finished),
+        ]
+        if progress != "—":
+            fields.append(self._field("Progress", progress))
+
+        blocks.append({"type": "section", "fields": fields})
+
+        # Row of buttons (static links work fine with webhooks)
+        buttons = []
+        if run_link:
+            # run_link is <url|label>; extract URL between <>
+            try:
+                url = run_link.split("<", 1)[1].split("|", 1)[0]
+                buttons.append({"text": "Open Run", "url": url})
+            except Exception:
+                pass
+        blocks.append(self._buttons_row(buttons))
+        return blocks
+
+    def _blocks_for_template(self) -> list:
+        if not self.checklist_template_id:
+            return []
+        tpl = self.checklist_template
+        blocks = []
+
+        tpl_link = self._admin_link("checklists", "checklisttemplate", self.checklist_template_id, str(tpl)[:60])
+
+        version = self._guess(tpl, ["version", "revision"]) or "—"
+        updated = self._fmt_dt(self._guess(tpl, ["updated_at", "modified_at"]))
+        step_count = self._guess(tpl, ["steps_count", "items_count"])
+        if not isinstance(step_count, int):
+            step_count = "—"
+
+        fields = [
+            self._field("Template", tpl_link or str(tpl)[:60]),
+            self._field("Version", str(version)),
+            self._field("Steps", str(step_count)),
+            self._field("Updated", updated),
+        ]
+        blocks.append({"type": "section", "fields": fields})
+
+        buttons = []
+        if tpl_link:
+            try:
+                url = tpl_link.split("<", 1)[1].split("|", 1)[0]
+                buttons.append({"text": "Open Template", "url": url})
+            except Exception:
+                pass
+        blocks.append(self._buttons_row(buttons))
+        return blocks
+
+    def _blocks_for_policy(self) -> list:
+        if not self.maintenance_policy_id:
+            return []
+        pol = self.maintenance_policy
+        blocks = []
+
+        pol_link = self._admin_link("policies", "maintenancepolicy", self.maintenance_policy_id, str(pol)[:60])
+
+        interval = self._guess(pol, ["interval", "frequency", "cadence"]) or "—"
+        next_due = self._fmt_dt(self._guess(pol, ["next_due", "next_run_at", "due_date"]))
+        scope    = self._guess(pol, ["scope", "applies_to"]) or "—"
+
+        fields = [
+            self._field("Policy", pol_link or str(pol)[:60]),
+            self._field("Interval", str(interval)),
+            self._field("Next due", next_due),
+            self._field("Scope", str(scope)),
+        ]
+        blocks.append({"type": "section", "fields": fields})
+
+        buttons = []
+        if pol_link:
+            try:
+                url = pol_link.split("<", 1)[1].split("|", 1)[0]
+                buttons.append({"text": "Open Policy", "url": url})
+            except Exception:
+                pass
+        blocks.append(self._buttons_row(buttons))
+        return blocks
+
     def _as_slack_blocks(self) -> Optional[list]:
         """
-        Build a Block Kit payload that includes links to checklist run/template/policy when present.
-        Works for Incoming Webhooks and chat.postMessage alike.
+        Pretty Block Kit layout with title/body, rich summaries for Run/Template/Policy,
+        and a context footer. Safe even if some fields don't exist.
         """
         label = (self.to or DEFAULT_SLACK_LABEL).strip()
         blocks: list = []
@@ -92,42 +239,33 @@ class NotificationLog(models.Model):
         title = (self.subject or "").strip()
         body  = (self.message or "").strip()
         if title:
-            blocks.append({"type": "section", "text": {"type": "mrkdwn", "text": f"*{title}*"}})
+            blocks.append({"type": "header", "text": {"type": "plain_text", "text": title}})
         if body:
             blocks.append({"type": "section", "text": {"type": "mrkdwn", "text": body}})
 
-        # Links row
-        fields = []
+        # Details
+        any_detail = False
+        rb = self._blocks_for_run()
+        if rb:
+            any_detail = True
+            blocks.append({"type": "divider"})
+            blocks.extend(rb)
 
-        # Checklist Run link (Admin)
-        if self.checklist_run_id:
-            run_label = f"Run #{self.checklist_run_id}"
-            link = self._admin_link("checklists", "checklistrun", self.checklist_run_id, run_label)
-            if link:
-                fields.append({"type": "mrkdwn", "text": f"*Checklist Run:*\n{link}"})
+        tb = self._blocks_for_template()
+        if tb:
+            any_detail = True
+            blocks.append({"type": "divider"})
+            blocks.extend(tb)
 
-        # Checklist Template link (Admin)
-        if self.checklist_template_id:
-            tpl_label = str(self.checklist_template)[:60]
-            link = self._admin_link("checklists", "checklisttemplate", self.checklist_template_id, tpl_label)
-            if link:
-                fields.append({"type": "mrkdwn", "text": f"*Template:*\n{link}"})
+        pb = self._blocks_for_policy()
+        if pb:
+            any_detail = True
+            blocks.append({"type": "divider"})
+            blocks.extend(pb)
 
-        # Maintenance Policy link (Admin)
-        if self.maintenance_policy_id:
-            pol_label = str(self.maintenance_policy)[:60]
-            link = self._admin_link("policies", "maintenancepolicy", self.maintenance_policy_id, pol_label)
-            if link:
-                fields.append({"type": "mrkdwn", "text": f"*Policy:*\n{link}"})
-
-        # Optional: Work Order id (no FK in your model yet)
-        if self.work_order_id:
-            fields.append({"type": "mrkdwn", "text": f"*Work Order:*\n#{self.work_order_id}"})
-
-        if fields:
-            blocks.append({"type": "section", "fields": fields})
-
-        # Label / context footer
+        # Footer/context
+        if any_detail:
+            blocks.append({"type": "divider"})
         blocks.append({
             "type": "context",
             "elements": [{"type": "mrkdwn", "text": f"Posted from Maintenance Scheduler • {label}"}],
