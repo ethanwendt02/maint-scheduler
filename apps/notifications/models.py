@@ -70,6 +70,7 @@ class NotificationLog(models.Model):
             return None
 
        # ---------- Slack formatting ----------
+        # ---------- Slack formatting & helpers ----------
     def _fmt_dt(self, dt) -> str:
         if not dt:
             return "—"
@@ -85,23 +86,52 @@ class NotificationLog(models.Model):
             if hasattr(obj, name):
                 val = getattr(obj, name)
                 try:
-                    return val() if callable(val) else val
+                    val = val() if callable(val) else val
                 except Exception:
                     continue
+                if val not in (None, ""):
+                    return val
         return None
+
+    def _admin_url(self, app: str, model: str, pk: int) -> Optional[str]:
+        """Absolute admin URL or None if we can't build one."""
+        try:
+            path = reverse(f"admin:{app}_{model}_change", args=[pk])
+            url = self._abs(path)
+            # Slack buttons require http(s) URLs
+            if url.startswith("http://") or url.startswith("https://"):
+                return url
+            return None
+        except Exception:
+            return None
+
+    def _admin_link(self, app: str, model: str, pk: int, label: str) -> Optional[str]:
+        """Mrkdwn link if absolute URL is available; else plain label."""
+        url = self._admin_url(app, model, pk)
+        if url:
+            return f"<{url}|{label}>"
+        return label  # fallback: not a link, but still readable
 
     def _field(self, label: str, value: str) -> dict:
         return {"type": "mrkdwn", "text": f"*{label}:*\n{value}"}
 
-    def _buttons_row(self, buttons: list[dict]) -> dict:
-        """buttons: list of {'text': 'Open Run', 'url': 'https://...'}"""
-        return {
-            "type": "actions",
-            "elements": [
-                {"type": "button", "text": {"type": "plain_text", "text": b["text"]}, "url": b["url"]}
-                for b in buttons if b.get("url")
-            ],
-        }
+    def _buttons_row(self, buttons: list[dict]) -> Optional[dict]:
+        """
+        buttons: list of {'text': 'Open Run', 'url': 'https://...'}
+        Only returns an actions block when there's at least one valid http(s) URL.
+        """
+        elements = []
+        for b in buttons:
+            url = b.get("url")
+            if url and (url.startswith("http://") or url.startswith("https://")):
+                elements.append({
+                    "type": "button",
+                    "text": {"type": "plain_text", "text": b.get("text", "Open")},
+                    "url": url,
+                })
+        if not elements:
+            return None  # <-- prevent empty actions block (was causing invalid_blocks)
+        return {"type": "actions", "elements": elements}
 
     def _as_text_for_slack(self) -> str:
         subj = (self.subject or "").strip()
@@ -113,26 +143,25 @@ class NotificationLog(models.Model):
             lines.append(body)
         return "\n".join(lines) or "(no content)"
 
+    # ----- Detail sections ----------------------------------------------------
     def _blocks_for_run(self) -> list:
         if not self.checklist_run_id:
             return []
-        run = self.checklist_run  # FK is already loaded by Django when accessed
+        run = self.checklist_run
         blocks = []
 
-        # Admin link
+        run_url  = self._admin_url("checklists", "checklistrun", self.checklist_run_id)
         run_link = self._admin_link("checklists", "checklistrun", self.checklist_run_id, f"Run #{self.checklist_run_id}")
 
-        # Heuristic fields (adjust names if your models differ)
         status   = self._guess(run, ["get_status_display", "status"]) or "—"
         robot    = self._guess(run, ["robot", "device", "asset"]) or "—"
         site     = self._guess(run, ["site", "location"]) or "—"
         started  = self._fmt_dt(self._guess(run, ["started_at", "start_time", "created_at", "created_on"]))
         finished = self._fmt_dt(self._guess(run, ["completed_at", "finished_at", "updated_at"]))
 
-        # Progress (try common patterns; falls back gracefully)
         steps_total = self._guess(run, ["steps_total", "total_steps", "items_count"])
         steps_done  = self._guess(run, ["steps_completed", "completed_steps", "done_count"])
-        progress    = "—"
+        progress = "—"
         try:
             if isinstance(steps_total, int) and steps_total > 0 and isinstance(steps_done, int):
                 pct = int((steps_done / steps_total) * 100)
@@ -153,16 +182,12 @@ class NotificationLog(models.Model):
 
         blocks.append({"type": "section", "fields": fields})
 
-        # Row of buttons (static links work fine with webhooks)
-        buttons = []
-        if run_link:
-            # run_link is <url|label>; extract URL between <>
-            try:
-                url = run_link.split("<", 1)[1].split("|", 1)[0]
-                buttons.append({"text": "Open Run", "url": url})
-            except Exception:
-                pass
-        blocks.append(self._buttons_row(buttons))
+        btns = []
+        if run_url:
+            btns.append({"text": "Open Run", "url": run_url})
+        row = self._buttons_row(btns)
+        if row:
+            blocks.append(row)
         return blocks
 
     def _blocks_for_template(self) -> list:
@@ -171,10 +196,11 @@ class NotificationLog(models.Model):
         tpl = self.checklist_template
         blocks = []
 
+        tpl_url  = self._admin_url("checklists", "checklisttemplate", self.checklist_template_id)
         tpl_link = self._admin_link("checklists", "checklisttemplate", self.checklist_template_id, str(tpl)[:60])
 
-        version = self._guess(tpl, ["version", "revision"]) or "—"
-        updated = self._fmt_dt(self._guess(tpl, ["updated_at", "modified_at"]))
+        version    = self._guess(tpl, ["version", "revision"]) or "—"
+        updated    = self._fmt_dt(self._guess(tpl, ["updated_at", "modified_at"]))
         step_count = self._guess(tpl, ["steps_count", "items_count"])
         if not isinstance(step_count, int):
             step_count = "—"
@@ -187,14 +213,12 @@ class NotificationLog(models.Model):
         ]
         blocks.append({"type": "section", "fields": fields})
 
-        buttons = []
-        if tpl_link:
-            try:
-                url = tpl_link.split("<", 1)[1].split("|", 1)[0]
-                buttons.append({"text": "Open Template", "url": url})
-            except Exception:
-                pass
-        blocks.append(self._buttons_row(buttons))
+        btns = []
+        if tpl_url:
+            btns.append({"text": "Open Template", "url": tpl_url})
+        row = self._buttons_row(btns)
+        if row:
+            blocks.append(row)
         return blocks
 
     def _blocks_for_policy(self) -> list:
@@ -203,6 +227,7 @@ class NotificationLog(models.Model):
         pol = self.maintenance_policy
         blocks = []
 
+        pol_url  = self._admin_url("policies", "maintenancepolicy", self.maintenance_policy_id)
         pol_link = self._admin_link("policies", "maintenancepolicy", self.maintenance_policy_id, str(pol)[:60])
 
         interval = self._guess(pol, ["interval", "frequency", "cadence"]) or "—"
@@ -217,20 +242,18 @@ class NotificationLog(models.Model):
         ]
         blocks.append({"type": "section", "fields": fields})
 
-        buttons = []
-        if pol_link:
-            try:
-                url = pol_link.split("<", 1)[1].split("|", 1)[0]
-                buttons.append({"text": "Open Policy", "url": url})
-            except Exception:
-                pass
-        blocks.append(self._buttons_row(buttons))
+        btns = []
+        if pol_url:
+            btns.append({"text": "Open Policy", "url": pol_url})
+        row = self._buttons_row(btns)
+        if row:
+            blocks.append(row)
         return blocks
 
     def _as_slack_blocks(self) -> Optional[list]:
         """
-        Pretty Block Kit layout with title/body, rich summaries for Run/Template/Policy,
-        and a context footer. Safe even if some fields don't exist.
+        Pretty Block Kit layout with title/body + rich summaries for Run/Template/Policy.
+        Safe even if some fields or URLs are missing.
         """
         label = (self.to or DEFAULT_SLACK_LABEL).strip()
         blocks: list = []
@@ -244,34 +267,30 @@ class NotificationLog(models.Model):
             blocks.append({"type": "section", "text": {"type": "mrkdwn", "text": body}})
 
         # Details
-        any_detail = False
+        added_any = False
         rb = self._blocks_for_run()
         if rb:
-            any_detail = True
+            added_any = True
             blocks.append({"type": "divider"})
             blocks.extend(rb)
-
         tb = self._blocks_for_template()
         if tb:
-            any_detail = True
+            added_any = True
             blocks.append({"type": "divider"})
             blocks.extend(tb)
-
         pb = self._blocks_for_policy()
         if pb:
-            any_detail = True
+            added_any = True
             blocks.append({"type": "divider"})
             blocks.extend(pb)
 
         # Footer/context
-        if any_detail:
+        if added_any:
             blocks.append({"type": "divider"})
-        blocks.append({
-            "type": "context",
-            "elements": [{"type": "mrkdwn", "text": f"Posted from Maintenance Scheduler • {label}"}],
-        })
+        blocks.append({"type": "context", "elements": [{"type": "mrkdwn", "text": f"Posted from Maintenance Scheduler • {label}"}]})
 
         return blocks or None
+
 
     # ---------- state helpers ----------
     def _mark(self, status: str, error_msg: str = "") -> None:
