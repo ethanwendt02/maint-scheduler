@@ -9,23 +9,18 @@ SLACK_DEFAULT_CHANNEL = os.getenv("SLACK_DEFAULT_CHANNEL", "")
 
 _client = WebClient(token=SLACK_BOT_TOKEN)
 
-def _looks_like_id(label: str) -> bool:
-    return label and (label[0] in ("C", "G")) and label.isalnum()
+def _is_id(label: str) -> bool:
+    return label and label[0] in ("C", "G")
 
-def _resolve_channel_id(label: str) -> str:
-    """
-    Accepts 'C…/G…' IDs or '#name'/ 'name'.
-    Requires channels:read and groups:read to resolve by name.
-    """
-    if not label:
-        raise RuntimeError("No Slack channel provided")
-    label = label.strip()
-    if _looks_like_id(label):
-        return label
-    if label.startswith("#"):
-        label = label[1:]
+def _normalize_name(label: str) -> str:
+    label = (label or "").strip()
+    return label[1:] if label.startswith("#") else label
 
-    # Try to find by name across public + private channels
+def _resolve_channel_id(name: str) -> str:
+    """
+    Turn 'maintenance-scheduler' into a channel ID.
+    Needs channels:read + groups:read. Raises with a clear message otherwise.
+    """
     cursor = None
     while True:
         resp = _client.conversations_list(
@@ -33,27 +28,23 @@ def _resolve_channel_id(label: str) -> str:
             cursor=cursor,
             types="public_channel,private_channel",
         )
-        for ch in resp["channels"]:
-            if ch.get("name") == label:
+        for ch in resp.get("channels", []):
+            if ch.get("name") == name:
                 return ch["id"]
         cursor = resp.get("response_metadata", {}).get("next_cursor")
         if not cursor:
             break
     raise RuntimeError(
-        f"Slack channel '{label}' not found. Use a channel ID or grant channels:read, groups:read."
+        f"Slack channel '#{name}' not found. "
+        f"Make sure the bot has channels:read & groups:read, and the channel exists."
     )
 
-def _ensure_join_if_public(channel_id: str) -> None:
-    """
-    Best-effort join for public channels so the bot can post.
-    Private channels still require a manual invite.
-    """
+def _ensure_in_channel(channel_id: str) -> None:
     try:
         _client.conversations_join(channel=channel_id)
     except SlackApiError as e:
-        # not_in_channel for private channels or already_in_channel -> ignore
+        # ok if already in channel or joining not allowed (e.g., private)
         if e.response.get("error") not in ("already_in_channel", "method_not_supported_for_channel_type"):
-            # For private channels, joining isn't allowed; they'll need to invite the bot.
             pass
 
 def post_message(
@@ -64,13 +55,18 @@ def post_message(
 ) -> dict:
     if not SLACK_BOT_TOKEN:
         raise RuntimeError("SLACK_BOT_TOKEN not set")
-    channel_label = channel or SLACK_DEFAULT_CHANNEL
-    if not channel_label:
+
+    label = (channel or SLACK_DEFAULT_CHANNEL)
+    if not label:
         raise RuntimeError("No Slack channel provided and SLACK_DEFAULT_CHANNEL not set")
 
-    channel_id = _resolve_channel_id(channel_label)
-    _ensure_join_if_public(channel_id)
+    # Accept #name, name, or ID
+    if _is_id(label):
+        channel_id = label
+    else:
+        channel_id = _resolve_channel_id(_normalize_name(label))
 
+    _ensure_in_channel(channel_id)
     try:
         resp = _client.chat_postMessage(
             channel=channel_id, text=text or " ", blocks=blocks, thread_ts=thread_ts
@@ -87,9 +83,13 @@ def upload_files(
 ) -> List[dict]:
     if not SLACK_BOT_TOKEN:
         raise RuntimeError("SLACK_BOT_TOKEN not set")
-    channel_label = channel or SLACK_DEFAULT_CHANNEL
-    channel_id = _resolve_channel_id(channel_label)
-    _ensure_join_if_public(channel_id)
+
+    label = (channel or SLACK_DEFAULT_CHANNEL)
+    if not label:
+        raise RuntimeError("No Slack channel provided and SLACK_DEFAULT_CHANNEL not set")
+
+    channel_id = label if _is_id(label) else _resolve_channel_id(_normalize_name(label))
+    _ensure_in_channel(channel_id)
 
     results: List[dict] = []
     for fp in filepaths:
@@ -111,5 +111,4 @@ def send_slack(channel: Optional[str] = None,
                blocks: Optional[List[dict]] = None,
                thread_ts: Optional[str] = None) -> dict:
     return post_message(text=text, channel=channel, blocks=blocks, thread_ts=thread_ts)
-
 
