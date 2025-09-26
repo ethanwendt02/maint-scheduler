@@ -1,5 +1,5 @@
 from django.db import models
-
+from django.conf import settings
 
 class Site(models.Model):
     """
@@ -29,3 +29,28 @@ class Robot(models.Model):
 
     def __str__(self) -> str:
         return f"{self.model}#{self.serial}"
+
+class ClientGroup(models.Model):
+    """
+    A client-visible group of users that belongs to a Site.
+    Used by the client portal to resolve user -> site -> data.
+    """
+    name = models.CharField(max_length=120)
+    site = models.ForeignKey(
+        Site,
+        on_delete=models.CASCADE,
+        related_name="client_groups",
+    )
+    users = models.ManyToManyField(
+        settings.AUTH_USER_MODEL,
+        related_name="client_groups",
+        blank=True,
+    )
+
+    class Meta:
+        unique_together = (("site", "name"),)
+        ordering = ("site__name", "name")
+
+    def __str__(self) -> str:
+        return f"{self.name} @ {self.site.name}"
+

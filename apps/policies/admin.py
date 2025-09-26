@@ -46,6 +46,18 @@ class MaintenancePolicyForm(forms.ModelForm):
 
 @admin.register(MaintenancePolicy)
 class MaintenancePolicyAdmin(admin.ModelAdmin):
-    form = MaintenancePolicyForm
-    exclude = ["scope", "threshold"]
+    list_display = ("name", "site", "type", "priority", "published", "interval_days", "window_days", "updated_at")
+    list_filter = ("site", "type", "priority", "published")
+    search_fields = ("name", "site__name")
+    list_select_related = ("site",)
+    readonly_fields = ("created_at", "updated_at")
+    fieldsets = (
+        ("Basics", {"fields": ("name", "site", "type", "priority", "published")}),
+        ("Scope (optional)", {"fields": ("scope",)}),
+        ("Time-based", {"fields": ("interval_days", "window_days")}),
+        ("Usage-based", {"fields": ("counter", "interval_units")}),
+        ("Condition-based", {"fields": ("threshold",)}),
+        ("Docs & Checklist", {"fields": ("checklist_id", "docs_url")}),
+        ("Timestamps", {"fields": ("created_at", "updated_at")}),
+    )
 

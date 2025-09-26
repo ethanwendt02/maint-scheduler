@@ -2,9 +2,26 @@
 from django.contrib import admin
 from django import forms
 
-from .models import Site, Robot
+from apps.policies.models import MaintenancePolicy
+from .models import Site, Robot, ClientGroup
 
-# ---------- Site (as you already had) ----------
+
+# ---------- Inlines shown on Site ----------
+class ClientGroupInline(admin.TabularInline):
+    model = ClientGroup
+    extra = 0
+    fields = ("name",)
+    show_change_link = True
+
+
+class PolicyInline(admin.TabularInline):
+    model = MaintenancePolicy
+    extra = 0
+    fields = ("name", "type", "priority", "published")
+    show_change_link = True
+
+
+# ---------- Site (your friendly flags editor preserved) ----------
 class SiteAdminForm(forms.ModelForm):
     flags_text = forms.CharField(
         required=False,
@@ -42,11 +59,21 @@ class SiteAdminForm(forms.ModelForm):
 class SiteAdmin(admin.ModelAdmin):
     form = SiteAdminForm
     exclude = ["flags"]
-    list_display = ("name", "tz")
+    list_display = ("name", "tz", "group_count", "policy_count")
     search_fields = ("name", "tz", "address")
+    ordering = ("name",)
+    inlines = [ClientGroupInline, PolicyInline]
+
+    def group_count(self, obj):
+        return obj.client_groups.count()
+    group_count.short_description = "Groups"
+
+    def policy_count(self, obj):
+        return obj.policies.count()
+    policy_count.short_description = "Policies"
 
 
-# ---------- Robot (friendly environments) ----------
+# ---------- Robot (friendly environments preserved) ----------
 class RobotAdminForm(forms.ModelForm):
     environments_text = forms.CharField(
         required=False,
@@ -89,4 +116,19 @@ class RobotAdmin(admin.ModelAdmin):
     search_fields = ("serial", "model", "site__name")
     autocomplete_fields = ("site",)
     ordering = ("model", "serial")
+
+
+# ---------- ClientGroup admin ----------
+@admin.register(ClientGroup)
+class ClientGroupAdmin(admin.ModelAdmin):
+    list_display = ("name", "site", "users_count")
+    list_select_related = ("site",)
+    list_filter = ("site",)
+    search_fields = ("name", "site__name")
+    filter_horizontal = ("users",)  # nice dual-list selector
+
+    def users_count(self, obj):
+        return obj.users.count()
+    users_count.short_description = "Users"
+
 
