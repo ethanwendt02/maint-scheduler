@@ -8,6 +8,9 @@ from django.contrib import messages
 from .models import ClientTicket, TicketComment
 from .forms import ClientTicketForm, TicketCommentForm
 
+from apps.fleet.models import ClientGroup, Site
+from apps.policies.models import MaintenancePolicy
+
 
 def _org_for(request):
     cp = getattr(request.user, "clientprofile", None)
@@ -25,9 +28,16 @@ class DashboardView(LoginRequiredMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
+        # New: resolve site via ClientGroup
+        site = _site_for(self.request)
+        ctx["site"] = site
+
+        # Keep your existing tickets list (still using organization for now)
         ctx["org"] = _org_for(self.request)
-        # show the same tickets as the list view (most recent first)
         ctx["recent_tickets"] = _portal_ticket_qs(self.request).order_by("-created_at")[:5]
+
+        # Optional: surface one “current policy” card on dashboard
+        ctx["current_policy"] = _policy_for_site(site)
         return ctx
 
 
@@ -123,14 +133,35 @@ class PolicyView(LoginRequiredMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        org = _org_for(self.request)
-        ctx["org"] = org
-        try:
-            from apps.policies.models import Policy  # adjust if your model is named differently
-            ctx["policy"] = Policy.objects.filter(organization=org).order_by("-id").first() if org else None
-        except Exception:
-            ctx["policy"] = None
+        site = _site_for(self.request)
+        ctx["site"] = site
+        # Latest published policy (or None) for this site
+        ctx["policy"] = _policy_for_site(site)
         return ctx
+
+
+def _site_for(request) -> Site | None:
+    """
+    Preferred: resolve the user's Site via ClientGroup.
+    Users can belong to multiple groups—pick the first for now.
+    """
+    cg_qs = getattr(request.user, "client_groups", None)
+    if not cg_qs:
+        return None
+    cg = cg_qs.select_related("site").first()
+    return cg.site if cg else None
+
+
+def _policy_for_site(site: Site | None):
+    """
+    Latest published policy for a site (or None).
+    """
+    if not site:
+        return None
+    return (MaintenancePolicy.objects
+            .filter(site=site, published=True)
+            .order_by("-id")
+            .first())
 
 
 
