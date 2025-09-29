@@ -1,15 +1,41 @@
 {% extends "portal/base_portal.html" %}
-
 {% block title %}Policy{% endblock %}
 
 {% block content %}
-  <h3 class="mb-3">Maintenance Policy</h3>
+  <h3 class="mb-3">Maintenance Policy{% if site %} · {{ site.name }}{% endif %}</h3>
 
   {% if policy %}
-    <!-- If your Policy model has a rich text field like `body` or `content`, adjust below -->
     <div class="card mb-3">
       <div class="card-body">
-        {{ policy.body|default:policy.content|safe }}
+        <div class="d-flex justify-content-between align-items-start">
+          <div>
+            <h5 class="mb-1">{{ policy.name }}</h5>
+            <div class="text-muted">
+              Type: {{ policy.get_type_display|default:policy.type }}
+              · Priority: {{ policy.priority }}
+              {% if policy.interval_days %} · Interval: {{ policy.interval_days }} days{% endif %}
+              {% if policy.window_days %} · Window: {{ policy.window_days }} days{% endif %}
+            </div>
+          </div>
+          <span class="badge bg-success">Published</span>
+        </div>
+
+        <hr>
+
+        <dl class="row mb-0">
+          {% if policy.checklist_id %}
+            <dt class="col-sm-3">Checklist</dt>
+            <dd class="col-sm-9">{{ policy.checklist_id }}</dd>
+          {% endif %}
+          {% if policy.docs_url %}
+            <dt class="col-sm-3">Docs</dt>
+            <dd class="col-sm-9"><a href="{{ policy.docs_url }}" target="_blank" rel="noopener">Open documentation</a></dd>
+          {% endif %}
+          {% if policy.counter %}
+            <dt class="col-sm-3">Counter</dt>
+            <dd class="col-sm-9">{{ policy.counter }}{% if policy.interval_units %} · Units: {{ policy.interval_units }}{% endif %}</dd>
+          {% endif %}
+        </dl>
       </div>
     </div>
   {% else %}
@@ -18,6 +44,7 @@
     </div>
   {% endif %}
 
+  {# You can keep your contact panel based on org if you still use portal.Organization #}
   {% if org %}
     <div class="card">
       <div class="card-header"><strong>Contact</strong></div>
@@ -33,3 +60,4 @@
     </div>
   {% endif %}
 {% endblock %}
+

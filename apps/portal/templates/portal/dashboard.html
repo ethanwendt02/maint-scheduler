@@ -2,7 +2,10 @@
 {% block title %}Dashboard · Client Portal{% endblock %}
 
 {% block content %}
-  <h3 class="mb-3">Welcome{% if org %}, {{ org.name }}{% endif %}</h3>
+  <h3 class="mb-3">
+    Welcome{% if org %}, {{ org.name }}{% endif %}
+    {% if site %}<small class="text-muted"> · {{ site.name }}</small>{% endif %}
+  </h3>
 
   <div class="row g-4">
     <div class="col-md-7">
@@ -14,89 +17,47 @@
             <a class="btn btn-sm btn-primary" href="{% url 'portal:ticket_create' %}">New Ticket</a>
           </div>
         </div>
-
-        <ul class="list-group list-group-flush">
-          {# Prefer recent_tickets; otherwise fall back to other common names #}
+        <div class="card-body">
           {% if recent_tickets %}
-            {% for t in recent_tickets %}
-              <li class="list-group-item">
-                <div class="fw-semibold">
-                  <a href="{% url 'portal:ticket_detail' t.pk %}">
-                    #{{ t.id }} · {% firstof t.subject t.title "(no subject)" %}
-                  </a>
-                </div>
-                <div class="text-muted small">
-                  {% firstof t.get_status_display t.status %} · {{ t.created_at|date:"Y-m-d H:i" }}
-                </div>
-              </li>
-            {% empty %}
-              <li class="list-group-item text-muted">No tickets yet.</li>
-            {% endfor %}
-
-          {% elif my_open_tickets %}
-            {% for t in my_open_tickets %}
-              <li class="list-group-item">
-                <div class="fw-semibold">
-                  <a href="{% url 'portal:ticket_detail' t.pk %}">
-                    #{{ t.id }} · {% firstof t.subject t.title "(no subject)" %}
-                  </a>
-                </div>
-                <div class="text-muted small">
-                  {% firstof t.get_status_display t.status %} · {{ t.created_at|date:"Y-m-d H:i" }}
-                </div>
-              </li>
-            {% empty %}
-              <li class="list-group-item text-muted">No tickets yet.</li>
-            {% endfor %}
-
-          {% elif tickets %}
-            {% for t in tickets %}
-              <li class="list-group-item">
-                <div class="fw-semibold">
-                  <a href="{% url 'portal:ticket_detail' t.pk %}">
-                    #{{ t.id }} · {% firstof t.subject t.title "(no subject)" %}
-                  </a>
-                </div>
-                <div class="text-muted small">
-                  {% firstof t.get_status_display t.status %} · {{ t.created_at|date:"Y-m-d H:i" }}
-                </div>
-              </li>
-            {% empty %}
-              <li class="list-group-item text-muted">No tickets yet.</li>
-            {% endfor %}
-
-          {% elif object_list %}
-            {% for t in object_list %}
-              <li class="list-group-item">
-                <div class="fw-semibold">
-                  <a href="{% url 'portal:ticket_detail' t.pk %}">
-                    #{{ t.id }} · {% firstof t.subject t.title "(no subject)" %}
-                  </a>
-                </div>
-                <div class="text-muted small">
-                  {% firstof t.get_status_display t.status %} · {{ t.created_at|date:"Y-m-d H:i" }}
-                </div>
-              </li>
-            {% empty %}
-              <li class="list-group-item text-muted">No tickets yet.</li>
-            {% endfor %}
-
+            <ul class="list-group list-group-flush">
+              {% for t in recent_tickets %}
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                  <div>
+                    <a href="{% url 'portal:ticket_detail' t.pk %}">#{{ t.pk }} · {{ t.subject }}</a>
+                    <div class="small text-muted">{{ t.created_at|date:"Y-m-d H:i" }}</div>
+                  </div>
+                  <span class="badge bg-secondary">{{ t.status }}</span>
+                </li>
+              {% endfor %}
+            </ul>
           {% else %}
-            <li class="list-group-item text-muted">No tickets yet.</li>
+            <p class="text-muted mb-0">No tickets yet.</p>
           {% endif %}
-        </ul>
+        </div>
       </div>
     </div>
 
     <div class="col-md-5">
       <div class="card">
-        <div class="card-header"><strong>Policies</strong></div>
+        <div class="card-header"><strong>Policy</strong></div>
         <div class="card-body">
-          <p class="text-muted mb-0">Your service policies will appear here.</p>
-          <a class="btn btn-link p-0 mt-2" href="{% url 'portal:policy' %}">View all</a>
+          {% if current_policy %}
+            <div class="mb-2">
+              <strong>{{ current_policy.name }}</strong>
+              <div class="small text-muted">
+                Type: {{ current_policy.get_type_display|default:current_policy.type }}
+                · Priority: {{ current_policy.priority }}
+              </div>
+            </div>
+            <a class="btn btn-sm btn-link p-0" href="{% url 'portal:policy' %}">View details</a>
+          {% else %}
+            <p class="text-muted mb-0">No published policy for this site yet.</p>
+            <a class="btn btn-sm btn-link p-0 mt-2" href="{% url 'portal:policy' %}">Policy page</a>
+          {% endif %}
         </div>
       </div>
     </div>
   </div>
 {% endblock %}
+
 
