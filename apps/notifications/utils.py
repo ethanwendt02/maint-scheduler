@@ -1,21 +1,38 @@
-# apps/notifications/utils.py
-from typing import Optional, List, Iterable
-from .slack import send_slack as _send_slack, post_message as _post_message
-from django.conf import settings
-from django.core.mail import EmailMultiAlternatives
+import os
+import requests
+from typing import List, Optional, Dict, Any
 
-def send_slack(channel_label: Optional[str], text: str, *, blocks: Optional[List[dict]] = None) -> bool:
-    _send_slack(channel=channel_label, text=text, blocks=blocks)
-    return True
+SLACK_WEBHOOK = os.getenv("SLACK_WEBHOOK")
 
-def send_email(to: Iterable[str] | str, subject: str, body: str, html_body: Optional[str] = None, from_email: Optional[str] = None) -> bool:
-    if isinstance(to, str):
-        to = [to]
-    from_email = from_email or getattr(settings, "DEFAULT_FROM_EMAIL", "no-reply@localhost")
-    msg = EmailMultiAlternatives(subject=subject, body=body, from_email=from_email, to=list(to))
-    if html_body:
-        msg.attach_alternative(html_body, "text/html")
-    msg.send()
-    return True
+def _post_to_slack(payload: Dict[str, Any]) -> None:
+    """
+    Low-level poster. No-ops if SLACK_WEBHOOK isn't set.
+    """
+    if not SLACK_WEBHOOK:
+        return
+    # Slack Incoming Webhooks expect JSON as the full message body.
+    requests.post(SLACK_WEBHOOK, json=payload, timeout=10)
+
+def send_slack(
+    channel: Optional[str],
+    text: str,
+    blocks: Optional[list] = None,
+) -> None:
+    """
+    High-level helper. 
+    - If `blocks` is provided, Slack shows rich layout.
+    - `channel` is optional; if your webhook allows overriding, pass "#maintenance-scheduler".
+    """
+    payload: Dict[str, Any] = {"text": text}
+    if channel:
+        payload["channel"] = channel  # works only if the webhook integration allows channel override
+    if blocks:
+        payload["blocks"] = blocks
+    _post_to_slack(payload)
+
+def send_email(recipients: List[str], subject: str, body: str) -> None:
+    # stub: integrate SES/SendGrid; for dev just print
+    print("EMAIL:", recipients, subject, body)
+
 
 

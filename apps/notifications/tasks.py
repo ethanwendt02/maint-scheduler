@@ -4,25 +4,26 @@ from datetime import timedelta
 
 from apps.workorders.models import WorkOrder
 from .utils import send_slack, send_email
+from .slack_blocks import wo_blocks
 
-REMINDER_DAYS = (14, 3)  # T-14 and T-3; add day-of in code
-
+REMINDER_DAYS = (14, 3)
 
 @shared_task
 def send_due_reminders():
-    """
-    Send reminders for planned/assigned WorkOrders at T-14, T-3, and T-0 09:00.
-    """
     now = timezone.now()
-    for wo in WorkOrder.objects.filter(status__in=["planned", "assigned"]).select_related("site", "assigned_to"):
+    for wo in WorkOrder.objects.filter(status__in=["planned", "assigned"]):
         days_to_due = (wo.due_by.date() - now.date()).days
-
         if days_to_due in REMINDER_DAYS:
-            msg = f"Reminder: WO#{wo.id} for {wo.robot} at {wo.site} due {wo.due_by:%Y-%m-%d}."
-            send_slack(wo.site.slack_channel or "#ops", msg)
-            if wo.assigned_to and wo.assigned_to.email:
-                send_email([wo.assigned_to.email], "Maintenance Reminder", msg)
+            text = f"Reminder: WO#{wo.id} for {wo.robot} at {wo.site} due {wo.due_by:%Y-%m-%d}."
+            blocks = wo_blocks(wo)
 
-        if days_to_due == 0 and now.hour == 9:
-            msg = f"Today due: WO#{wo.id} — {wo.robot} at {wo.site}"
-            send_slack(wo.site.slack_channel or "#ops", msg)
+            # Force to #maintenance-scheduler (what you asked for).
+            # If your webhook doesn't allow overrides, remove `channel=` and keep the text label in footer.
+            send_slack("#maintenance-scheduler", text=text, blocks=blocks)
+
+            if wo.assigned_to and wo.assigned_to.email:
+                send_email([wo.assigned_to.email], "Maintenance Reminder", text)
+
+        if days_to_due == 0:
+            send_slack("#maintenance-scheduler", text=f"Today due: WO#{wo.id}", blocks=wo_blocks(wo))
+
