@@ -26,17 +26,17 @@ def _split_multi(val: str, seps: str = ",;") -> t.List[str]:
     return out
 
     def _extract_labeled(text: str, label: str) -> str:
-    """
-    From a multi-line blob like 'Serial: spot-BD-123, Wi-Fi Password: ...',
-    extract the value for the given label. Returns '' if not found.
-    """
-    if not text:
-        return ""
-    import re
-    # Look for "Serial: value" up to comma/newline
-    pat = rf"{re.escape(label)}\s*:\s*([^\n,]+)"
-    m = re.search(pat, text, flags=re.IGNORECASE)
-    return (m.group(1).strip() if m else "").strip()
+        """
+        From a multi-line blob like 'Serial: spot-BD-123, Wi-Fi Password: ...',
+        extract the value for the given label. Returns '' if not found.
+        """
+        if not text:
+            return ""
+        import re
+        # Look for "Serial: value" up to comma/newline
+        pat = rf"{re.escape(label)}\s*:\s*([^\n,]+)"
+        m = re.search(pat, text, flags=re.IGNORECASE)
+        return (m.group(1).strip() if m else "").strip()
 
 
 class Command(BaseCommand):
