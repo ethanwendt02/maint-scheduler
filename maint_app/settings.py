@@ -29,6 +29,8 @@ DEBUG = os.environ.get("DJANGO_DEBUG", "False") == "True"
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "change-me")  # Render will set this
 ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "").split(",") if not DEBUG else ["*"]
 CSRF_TRUSTED_ORIGINS = os.environ.get("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",")
+NOTION_API_TOKEN = os.getenv("NOTION_API_KEY","")
+NOTION_ROBOT_DB_ID = os.getenv("NOTION_ROBOT_DB_ID","")
 
 ALLOWED_HOSTS = [h.strip() for h in os.environ.get("ALLOWED_HOSTS", "maint-scheduler.onrender.com").split(",") if h.strip()]
 

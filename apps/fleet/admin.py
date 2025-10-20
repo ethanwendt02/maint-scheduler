@@ -1,5 +1,4 @@
 # apps/fleet/admin.py
-# apps/fleet/admin.py
 from django.contrib import admin
 from django import forms
 
@@ -146,30 +145,21 @@ class RobotAdminForm(forms.ModelForm):
         return obj
 
 
-@admin.register(Robot)
+@admin.register(Robot)  # <-- register RobotAdmin
 class RobotAdmin(admin.ModelAdmin):
     form = RobotAdminForm
-    exclude = ["environments", "licenses"]
-    list_display = ("model", "serial", "site", "robot_type", "location", "tier", "status", "manager")
-    list_filter = ("site", "tier", "status", "model", "robot_type", "payloads")
-    search_fields = ("serial", "model", "site__name", "manager__name", "manager__email")
-    autocomplete_fields = ("site", "manager")
-    filter_horizontal = ("payloads",)
+    list_display = ("model", "serial", "site", "tier", "status")
+    list_filter = ("site", "tier", "status", "model", "payloads")
+    search_fields = ("serial", "model", "site__name", "payloads__name")
+    autocomplete_fields = ("site", "payloads")
+    filter_horizontal = ("payloads",)  # nice multi-select UI
     ordering = ("model", "serial")
 
 
-# ---------- Contact & Payload admin ----------
-@admin.register(Contact)
-class ContactAdmin(admin.ModelAdmin):
-    list_display = ("name", "email", "phone")
-    search_fields = ("name", "email", "phone")
-    ordering = ("name",)
-
-
+# ---------- Payload admin ----------
 @admin.register(Payload)
 class PayloadAdmin(admin.ModelAdmin):
-    list_display = ("name", "type")
-    search_fields = ("name", "type")
+    search_fields = ("name",)
     ordering = ("name",)
 
 
@@ -186,3 +176,4 @@ if HAS_CLIENT_GROUP:
         def users_count(self, obj):
             return obj.users.count()
         users_count.short_description = "Users"
+

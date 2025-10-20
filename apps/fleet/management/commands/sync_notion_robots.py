@@ -1,21 +1,37 @@
-import os, time, typing as t, requests
+# apps/fleet/management/commands/sync_notion_robots.py
+import os
+import time
+import typing as t
+import requests
+
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
+
 from apps.fleet.models import Robot, Site, Payload, Contact
 
 NOTION_API_BASE = "https://api.notion.com/v1"
 NOTION_VERSION = "2022-06-28"
 
+
+def re_split(s: str) -> t.List[str]:
+    import re
+    return re.split(r"[;,]", s) if s else []
+
+
 def _prop_str(props: dict, name: str) -> str:
+    """
+    Extract a single string from a Notion property that could be title, rich_text, select, etc.
+    """
     if not name or name not in props:
         return ""
-    p = props[name]; tpe = p.get("type")
+    p = props[name]
+    tpe = p.get("type")
     if tpe == "title":
-        return "".join([r.get("plain_text","") for r in p["title"]]).strip()
+        return "".join([r.get("plain_text", "") for r in p.get("title", [])]).strip()
     if tpe == "rich_text":
-        return "".join([r.get("plain_text","") for r in p["rich_text"]]).strip()
+        return "".join([r.get("plain_text", "") for r in p.get("rich_text", [])]).strip()
     if tpe == "select":
-        return (p["select"]["name"] if p["select"] else "") or ""
+        return (p.get("select") or {}).get("name", "") or ""
     if tpe == "url":
         return p.get("url") or ""
     if tpe == "number":
@@ -27,20 +43,48 @@ def _prop_str(props: dict, name: str) -> str:
         return "true" if p.get("checkbox") else "false"
     if tpe == "people":
         # join names as a fallback
-        return ",".join([u.get("name") or u.get("id") for u in p.get("people", [])])
+        return ",".join([u.get("name") or u.get("id", "") for u in p.get("people", [])]).strip(",")
+    if tpe == "relation":
+        # Often you’ll want titles for relations; we fall back to relation IDs joined.
+        rel = p.get("relation", [])
+        return ",".join([r.get("id", "") for r in rel]).strip(",")
     return ""
 
-def _prop_list(props: dict, name: str) -> t.List[str]:
+
+def _prop_relation_names(props: dict, name: str) -> t.List[str]:
+    """
+    If a Notion property is a Relation to a DB where each related page’s title is the payload name,
+    you won’t get plain titles in the page result without extra lookups.
+    To keep this command simple (no extra API calls), we return relation IDs.
+    If you want true names, convert your Notion 'Payloads' column to a multi-select OR
+    store the names in a parallel rich_text column and map to that.
+    """
     if not name or name not in props:
         return []
-    p = props[name]; tpe = p.get("type")
+    p = props[name]
+    if p.get("type") != "relation":
+        return []
+    return [r.get("id", "") for r in p.get("relation", []) if r.get("id")]
+
+
+def _prop_list(props: dict, name: str) -> t.List[str]:
+    """
+    Extract a list of strings from multi_select OR comma/semicolon-separated rich_text/title.
+    Also gracefully handles 'relation' by returning relation IDs (see note above).
+    """
+    if not name or name not in props:
+        return []
+    p = props[name]
+    tpe = p.get("type")
     if tpe == "multi_select":
-        return [opt["name"] for opt in p.get("multi_select", [])]
+        return [opt.get("name", "") for opt in p.get("multi_select", []) if opt.get("name")]
+    if tpe == "relation":
+        return _prop_relation_names(props, name)
     if tpe in ("rich_text", "title"):
-        # allow comma/semicolon separated text
         raw = _prop_str(props, name)
-        return [x.strip() for x in re_split(raw)]
+        return [x.strip() for x in re_split(raw) if x.strip()]
     return []
+
 
 def _prop_people(props: dict, name: str) -> t.List[dict]:
     if not name or name not in props:
@@ -50,18 +94,18 @@ def _prop_people(props: dict, name: str) -> t.List[dict]:
         return []
     result = []
     for u in p.get("people", []):
-        # Notion may or may not include email; name usually present
         person = {"name": u.get("name") or "", "id": u.get("id") or ""}
         person["email"] = (u.get("person") or {}).get("email") or ""
         result.append(person)
     return result
 
-def re_split(s: str) -> t.List[str]:
-    import re
-    return re.split(r"[;,]", s) if s else []
 
 def notion_query_db(token: str, db_id: str) -> t.Iterable[dict]:
-    headers = {"Authorization": f"Bearer {token}", "Notion-Version": NOTION_VERSION, "Content-Type": "application/json"}
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Notion-Version": NOTION_VERSION,
+        "Content-Type": "application/json",
+    }
     url = f"{NOTION_API_BASE}/databases/{db_id}/query"
     payload = {"page_size": 100}
     next_cursor = None
@@ -78,6 +122,7 @@ def notion_query_db(token: str, db_id: str) -> t.Iterable[dict]:
         if not next_cursor:
             break
         time.sleep(0.2)
+
 
 class Command(BaseCommand):
     help = "Sync robots & related data from a Notion database."
@@ -96,7 +141,7 @@ class Command(BaseCommand):
         parser.add_argument("--col-status", default="Status")
         parser.add_argument("--col-robot-type", default="Robot Type")
         parser.add_argument("--col-licenses", default="License Numbers")   # multi or comma text
-        parser.add_argument("--col-payloads", default="Payloads")          # multi-select
+        parser.add_argument("--col-payloads", default="Payloads")          # multi-select or relation
         parser.add_argument("--col-manager-people", default="Manager")     # people
         parser.add_argument("--col-manager-name", default="Manager Name")  # text fallback
         parser.add_argument("--col-manager-email", default="Manager Email")# email fallback
@@ -104,13 +149,12 @@ class Command(BaseCommand):
 
     @transaction.atomic
     def handle(self, *args, **opts):
-        import re
         token = opts.get("token") or os.getenv("NOTION_API_TOKEN")
         db_id = opts.get("db_id") or os.getenv("NOTION_ROBOT_DB_ID")
         if not token or not db_id:
             raise CommandError("NOTION_API_TOKEN and NOTION_ROBOT_DB_ID must be set (env or CLI).")
 
-        dry = opts["dry_run"]
+        dry = bool(opts.get("dry_run"))
 
         col = {k.replace("col_", ""): v for k, v in opts.items() if k.startswith("col_")}
 
@@ -132,10 +176,14 @@ class Command(BaseCommand):
             slack_channel = _prop_str(props, col["slack"])
 
             robot_type = _prop_str(props, col["robot-type"])
-            licenses = _prop_list(props, col["licenses"]) or re_split(_prop_str(props, col["licenses"]))
-            licenses = [x for x in [s.strip() for s in licenses] if x]
 
-            payload_names = _prop_list(props, col["payloads"])
+            # licenses can be multi_select or comma text
+            licenses = _prop_list(props, col["licenses"]) or re_split(_prop_str(props, col["licenses"]))
+            licenses = [x for x in (s.strip() for s in licenses) if x]
+
+            # payloads can be multi_select OR relation
+            payload_names_or_ids = _prop_list(props, col["payloads"])
+
             mgr_people = _prop_people(props, col["manager-people"])
             mgr_name = _prop_str(props, col["manager-name"])
             mgr_email = _prop_str(props, col["manager-email"])
@@ -152,7 +200,6 @@ class Command(BaseCommand):
             # Upsert Manager Contact
             manager = None
             if mgr_people:
-                # prefer first person
                 cand = mgr_people[0]
                 m_email = cand.get("email") or mgr_email or ""
                 m_name = cand.get("name") or mgr_name or ""
@@ -168,15 +215,18 @@ class Command(BaseCommand):
 
             # Upsert/resolve Payloads
             payload_objs = []
-            for pname in payload_names:
+            for pname in payload_names_or_ids:
+                # If your Notion column is relation IDs, you'll get IDs here; you can map them to names by
+                # switching your Notion column to multi-select OR maintaining a parallel text column.
                 po, _ = Payload.objects.get_or_create(name=pname)
                 payload_objs.append(po)
 
+            # IMPORTANT: use 'environments' (list) to match your Admin, not 'environment' (dict)
             defaults = {
                 "model": model or "UNKNOWN",
                 "site": site,
                 "tier": tier,
-                "environment": {},  # keep old path for env flags if you use them elsewhere
+                "environments": [],        # aligns with your RobotAdmin form fields
                 "status": status,
                 "robot_type": robot_type,
                 "location": location,
@@ -190,7 +240,9 @@ class Command(BaseCommand):
                 for field, val in defaults.items():
                     cur = getattr(obj, field)
                     if field == "site":
-                        if (cur.id if cur else None) != (val.id if val else None):
+                        cur_id = cur.id if cur else None
+                        val_id = val.id if val else None
+                        if cur_id != val_id:
                             changed.append((field, cur, val))
                     elif cur != val:
                         changed.append((field, cur, val))
@@ -213,6 +265,9 @@ class Command(BaseCommand):
             if not dry and obj is not None:
                 obj.payloads.set(payload_objs)
 
-        self.stdout.write(self.style.SUCCESS(
-            f"Done. created={created_r} updated={updated_r} unchanged/skipped={skipped_r} dry_run={dry}"
-        ))
+        self.stdout.write(
+            self.style.SUCCESS(
+                f"Done. created={created_r} updated={updated_r} unchanged/skipped={skipped_r} dry_run={dry}"
+            )
+        )
+

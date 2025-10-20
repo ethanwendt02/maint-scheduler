@@ -24,11 +24,12 @@ class Contact(models.Model):
 
 
 class Payload(models.Model):
-    """Payload attached to a robot (e.g., Lidar X2, Gripper v3)."""
+    """
+    A payload a robot can carry/use, e.g. 'Lidar v2', 'Cleaning Head M3', 'Camera Kit A'.
+    """
     name = models.CharField(max_length=120, unique=True)
-    type = models.CharField(max_length=60, blank=True)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.name
 
 
@@ -67,6 +68,11 @@ class Robot(models.Model):
     manager = models.ForeignKey(
         "Contact", null=True, blank=True, on_delete=models.SET_NULL, related_name="robots"
     )
+
+    # --- DROP-IN: Robot.payloads field ---
+    payloads = models.ManyToManyField("Payload", blank=True, related_name="robots")
+    # --- END DROP-IN ---
+
 
     def __str__(self):
         return f"{self.model}#{self.serial}"
