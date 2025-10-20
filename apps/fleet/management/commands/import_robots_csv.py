@@ -25,6 +25,19 @@ def _split_multi(val: str, seps: str = ",;") -> t.List[str]:
         out.append(buf.strip())
     return out
 
+    def _extract_labeled(text: str, label: str) -> str:
+    """
+    From a multi-line blob like 'Serial: spot-BD-123, Wi-Fi Password: ...',
+    extract the value for the given label. Returns '' if not found.
+    """
+    if not text:
+        return ""
+    import re
+    # Look for "Serial: value" up to comma/newline
+    pat = rf"{re.escape(label)}\s*:\s*([^\n,]+)"
+    m = re.search(pat, text, flags=re.IGNORECASE)
+    return (m.group(1).strip() if m else "").strip()
+
 
 class Command(BaseCommand):
     help = "Import/Upsert Robots + Payloads from a CSV export (e.g., Notion). Upserts by Serial."
@@ -88,7 +101,16 @@ class Command(BaseCommand):
                                    f"Present headers: {headers}")
 
             for row in reader:
-                serial = (row.get(col["serial"]) or "").strip()
+                raw_serial = (row.get(col["serial"]) or "").strip()
+            # If the "serial" column is actually a blob (e.g., "Robot Data"), extract the labeled value.
+            serial = raw_serial
+            if not serial or "Serial" in raw_serial:
+                extracted = _extract_labeled(raw_serial, "Serial")
+                if extracted:
+                    serial = extracted
+            # Final guard
+            serial = (serial or "").strip()
+
                 if not serial:
                     skipped += 1
                     continue
