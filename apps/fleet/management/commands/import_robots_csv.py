@@ -1,3 +1,4 @@
+# apps/fleet/management/commands/import_robots_csv.py
 import csv
 import os
 import typing as t
@@ -44,7 +45,7 @@ class Command(BaseCommand):
         parser.add_argument("--col-location", default="Deployment Location")  # often "Location" in CSVs
         parser.add_argument("--col-tier", default="Tier")
         parser.add_argument("--col-status", default="Status")
-        parser.add_argument("--col-robot-type", default="Type")               # or "Robot Type"
+        parser.add_argument("--col-robot-type", default="Robot Type")         # sometimes "Type"
         parser.add_argument("--col-licenses", default="License Numbers")
         parser.add_argument("--col-payloads", default="Payloads")
         parser.add_argument("--col-manager-name", default="Manager Name")
@@ -67,7 +68,12 @@ class Command(BaseCommand):
         license_seps = opts["licenses_seps"]
         preview = int(opts["preview"] or 0)
 
-        col = {k.replace("col_", ""): v for k, v in opts.items() if k.startswith("col_")}
+        # Build a dict of column mappings and normalize keys to underscores
+        col: dict[str, str] = {}
+        for k, v in opts.items():
+            if k.startswith("col_"):
+                key = k.replace("col_", "").replace("-", "_")
+                col[key] = v
 
         created, updated, skipped = 0, 0, 0
         preview_rows = []
@@ -78,7 +84,8 @@ class Command(BaseCommand):
             if not headers:
                 raise CommandError("CSV has no headers.")
             if col["serial"] not in headers:
-                raise CommandError(f"CSV is missing required Serial column: {col['serial']!r}")
+                raise CommandError(f"CSV is missing required Serial column: {col['serial']!r}. "
+                                   f"Present headers: {headers}")
 
             for row in reader:
                 serial = (row.get(col["serial"]) or "").strip()
@@ -86,32 +93,41 @@ class Command(BaseCommand):
                     skipped += 1
                     continue
 
+                # base fields
                 model = (row.get(col["model"]) or "").strip() or "UNKNOWN"
                 site_name = (row.get(col["site"]) or "").strip()
-                location = (row.get(col["location"]) or "").strip()
+                location = (row.get(col["location"]) or row.get("Location") or "").strip()
                 tier = (row.get(col["tier"]) or "").strip() or "P2"
                 status = (row.get(col["status"]) or "").strip() or "active"
-                robot_type = (row.get(col["robot-type"]) or row.get("Robot Type") or "").strip()
                 slack_channel = (row.get(col["slack"]) or "").strip()
 
-                manager_name = (row.get(col["manager-name"]) or "").strip()
-                manager_email = (row.get(col["manager-email"]) or "").strip()
+                # robot type can appear under several headers
+                robot_type = (
+                    row.get(col.get("robot_type", "Robot Type"))
+                    or row.get("Robot Type")
+                    or row.get("Type")
+                    or ""
+                ).strip()
+
+                # manager
+                manager_name = (row.get(col["manager_name"]) or "").strip()
+                manager_email = (row.get(col["manager_email"]) or "").strip()
 
                 # lists
                 licenses_raw = (row.get(col["licenses"]) or "").strip()
                 licenses = _split_multi(licenses_raw, seps=license_seps)
 
-                payloads_raw = (row.get(col["payloads"]) or "").strip()
+                payloads_raw = (row.get(col["payloads"]) or row.get("Payloads") or "").strip()
                 payload_names = _split_multi(payloads_raw, seps=payload_seps)
 
-                # build preview view if requested
+                # preview output (before DB writes)
                 if preview and len(preview_rows) < preview:
                     preview_rows.append({
                         "model": model, "serial": serial, "site": site_name,
                         "payloads": payload_names, "tier": tier, "status": status
                     })
 
-                # upserts
+                # Upserts start here
                 site = None
                 if site_name:
                     site, _ = Site.objects.get_or_create(name=site_name, defaults={"tz": "UTC"})
@@ -129,7 +145,6 @@ class Command(BaseCommand):
                 elif manager_name:
                     manager, _ = Contact.objects.get_or_create(name=manager_name)
 
-                # create or update robot
                 defaults = dict(
                     model=model,
                     site=site,
@@ -137,14 +152,13 @@ class Command(BaseCommand):
                     status=status,
                     robot_type=robot_type,
                     location=location,
-                    environments=[],     # keep consistent with your admin form
+                    environments=[],     # aligns with your admin form
                     licenses=licenses,
                     manager=manager,
                 )
 
                 try:
                     robot = Robot.objects.get(serial=serial)
-                    # determine if something changed
                     changed = False
                     for fld, newval in defaults.items():
                         cur = getattr(robot, fld)
