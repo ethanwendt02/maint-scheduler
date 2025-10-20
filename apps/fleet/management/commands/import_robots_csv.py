@@ -25,18 +25,18 @@ def _split_multi(val: str, seps: str = ",;") -> t.List[str]:
         out.append(buf.strip())
     return out
 
-    def _extract_labeled(text: str, label: str) -> str:
-        """
-        From a multi-line blob like 'Serial: spot-BD-123, Wi-Fi Password: ...',
-        extract the value for the given label. Returns '' if not found.
-        """
-        if not text:
-            return ""
-        import re
-        # Look for "Serial: value" up to comma/newline
-        pat = rf"{re.escape(label)}\s*:\s*([^\n,]+)"
-        m = re.search(pat, text, flags=re.IGNORECASE)
-        return (m.group(1).strip() if m else "").strip()
+
+def _extract_labeled(text: str, label: str) -> str:
+    """
+    From a blob like 'Serial: spot-BD-123, Wi-Fi Password: ...',
+    extract the value for the given label.
+    """
+    if not text:
+        return ""
+    import re
+    pat = rf"{re.escape(label)}\s*:\s*([^\n,]+)"
+    m = re.search(pat, text, flags=re.IGNORECASE)
+    return (m.group(1).strip() if m else "").strip()
 
 
 class Command(BaseCommand):
@@ -55,10 +55,10 @@ class Command(BaseCommand):
         parser.add_argument("--col-model", default="Model")
         parser.add_argument("--col-serial", default="Serial")
         parser.add_argument("--col-site", default="Site")
-        parser.add_argument("--col-location", default="Deployment Location")  # often "Location" in CSVs
+        parser.add_argument("--col-location", default="Deployment Location")
         parser.add_argument("--col-tier", default="Tier")
         parser.add_argument("--col-status", default="Status")
-        parser.add_argument("--col-robot-type", default="Robot Type")         # sometimes "Type"
+        parser.add_argument("--col-robot-type", default="Robot Type")   # sometimes "Type"
         parser.add_argument("--col-licenses", default="License Numbers")
         parser.add_argument("--col-payloads", default="Payloads")
         parser.add_argument("--col-manager-name", default="Manager Name")
@@ -81,7 +81,7 @@ class Command(BaseCommand):
         license_seps = opts["licenses_seps"]
         preview = int(opts["preview"] or 0)
 
-        # Build a dict of column mappings and normalize keys to underscores
+        # Normalize mapping keys to underscores
         col: dict[str, str] = {}
         for k, v in opts.items():
             if k.startswith("col_"):
@@ -89,7 +89,7 @@ class Command(BaseCommand):
                 col[key] = v
 
         created, updated, skipped = 0, 0, 0
-        preview_rows = []
+        preview_rows: list[dict] = []
 
         with open(path, "r", encoding=encoding, newline="") as f:
             reader = csv.DictReader(f, delimiter=delimiter)
@@ -97,33 +97,31 @@ class Command(BaseCommand):
             if not headers:
                 raise CommandError("CSV has no headers.")
             if col["serial"] not in headers:
-                raise CommandError(f"CSV is missing required Serial column: {col['serial']!r}. "
-                                   f"Present headers: {headers}")
+                raise CommandError(
+                    f"CSV is missing required Serial column: {col['serial']!r}. Present headers: {headers}"
+                )
 
             for row in reader:
+                # Serial can be a blob column like "Robot Data"
                 raw_serial = (row.get(col["serial"]) or "").strip()
-            # If the "serial" column is actually a blob (e.g., "Robot Data"), extract the labeled value.
-            serial = raw_serial
-            if not serial or "Serial" in raw_serial:
-                extracted = _extract_labeled(raw_serial, "Serial")
-                if extracted:
-                    serial = extracted
-            # Final guard
-            serial = (serial or "").strip()
+                serial = raw_serial
+                if not serial or "Serial" in raw_serial:
+                    extracted = _extract_labeled(raw_serial, "Serial")
+                    if extracted:
+                        serial = extracted
+                serial = (serial or "").strip()
 
                 if not serial:
                     skipped += 1
                     continue
 
-                # base fields
-                model = (row.get(col["model"]) or "").strip() or "UNKNOWN"
-                site_name = (row.get(col["site"]) or "").strip()
+                model = (row.get(col["model"]) or row.get("Model") or "").strip() or "UNKNOWN"
+                site_name = (row.get(col["site"]) or row.get("Site") or "").strip()
                 location = (row.get(col["location"]) or row.get("Location") or "").strip()
-                tier = (row.get(col["tier"]) or "").strip() or "P2"
-                status = (row.get(col["status"]) or "").strip() or "active"
-                slack_channel = (row.get(col["slack"]) or "").strip()
+                tier = (row.get(col["tier"]) or row.get("Tier") or "").strip() or "P2"
+                status = (row.get(col["status"]) or row.get("Status") or "").strip() or "active"
+                slack_channel = (row.get(col["slack"]) or row.get("Slack Channel") or "").strip()
 
-                # robot type can appear under several headers
                 robot_type = (
                     row.get(col.get("robot_type", "Robot Type"))
                     or row.get("Robot Type")
@@ -131,25 +129,26 @@ class Command(BaseCommand):
                     or ""
                 ).strip()
 
-                # manager
-                manager_name = (row.get(col["manager_name"]) or "").strip()
-                manager_email = (row.get(col["manager_email"]) or "").strip()
+                manager_name = (row.get(col["manager_name"]) or row.get("Manager Name") or "").strip()
+                manager_email = (row.get(col["manager_email"]) or row.get("Manager Email") or "").strip()
 
-                # lists
-                licenses_raw = (row.get(col["licenses"]) or "").strip()
+                licenses_raw = (row.get(col["licenses"]) or row.get("License Numbers") or "").strip()
                 licenses = _split_multi(licenses_raw, seps=license_seps)
 
                 payloads_raw = (row.get(col["payloads"]) or row.get("Payloads") or "").strip()
                 payload_names = _split_multi(payloads_raw, seps=payload_seps)
 
-                # preview output (before DB writes)
                 if preview and len(preview_rows) < preview:
                     preview_rows.append({
-                        "model": model, "serial": serial, "site": site_name,
-                        "payloads": payload_names, "tier": tier, "status": status
+                        "model": model,
+                        "serial": serial,
+                        "site": site_name,
+                        "payloads": payload_names,
+                        "tier": tier,
+                        "status": status,
                     })
 
-                # Upserts start here
+                # Upserts
                 site = None
                 if site_name:
                     site, _ = Site.objects.get_or_create(name=site_name, defaults={"tz": "UTC"})
@@ -161,8 +160,7 @@ class Command(BaseCommand):
                 manager = None
                 if manager_email:
                     manager, _ = Contact.objects.get_or_create(
-                        email=manager_email,
-                        defaults={"name": manager_name or manager_email}
+                        email=manager_email, defaults={"name": manager_name or manager_email}
                     )
                 elif manager_name:
                     manager, _ = Contact.objects.get_or_create(name=manager_name)
@@ -174,7 +172,7 @@ class Command(BaseCommand):
                     status=status,
                     robot_type=robot_type,
                     location=location,
-                    environments=[],     # aligns with your admin form
+                    environments=[],  # consistent with admin form
                     licenses=licenses,
                     manager=manager,
                 )
@@ -204,7 +202,6 @@ class Command(BaseCommand):
                         robot = Robot.objects.create(serial=serial, **defaults)
                     created += 1
 
-                # payload M2M
                 if not dry:
                     payload_objs = []
                     for pname in payload_names:
@@ -216,14 +213,12 @@ class Command(BaseCommand):
                         robot = Robot.objects.get(serial=serial)
                     robot.payloads.set(payload_objs)
 
-        # Preview mode: show sample rows and abort without committing
         if preview_rows:
             for i, pr in enumerate(preview_rows, 1):
                 self.stdout.write(f"[{i}] {pr}")
             raise CommandError("Preview finished. No DB changes applied.")
 
         if dry:
-            # abort transaction to leave DB untouched
             raise CommandError(f"DRY RUN: created={created}, updated={updated}, skipped={skipped}")
 
         self.stdout.write(self.style.SUCCESS(
