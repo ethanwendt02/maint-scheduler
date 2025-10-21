@@ -52,7 +52,7 @@ class ClientGroup(models.Model):
 
 class Robot(models.Model):
     model = models.CharField(max_length=60)
-    serial = models.CharField(max_length=60, unique=True)
+    serial = models.CharField(max_length=128, unique=True)
     site = models.ForeignKey(Site, on_delete=models.PROTECT, null=True, blank=True)
     tier = models.CharField(max_length=4, default="P2")
     status = models.CharField(max_length=32, default="active")
