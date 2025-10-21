@@ -1,0 +1,27 @@
+{% extends "admin/change_list.html" %}
+{% load static %}
+
+{% block content_title %}
+  <h1>Maintenance policies</h1>
+{% endblock %}
+
+{% block object-tools %}
+  {{ block.super }}
+{% endblock %}
+
+{% block content %}
+  <div class="module" style="margin-bottom:16px;">
+    <h2 style="margin:0 0 8px;">How to create a Maintenance Policy</h2>
+    <ol style="margin:0 0 8px 18px;">
+      <li>Make sure your <strong>Sites</strong>, <strong>Payloads</strong>, and <strong>Robots</strong> exist under <em>Fleet</em>.</li>
+      <li>Optionally create a <strong>Checklist Template</strong> under <em>Checklists</em>.</li>
+      <li>Click <strong>“Add maintenance policy”</strong> (top right).</li>
+      <li>Fill <em>Basics</em> (name, type, priority) and choose <em>Published</em> when ready.</li>
+      <li>Set <em>Scope</em> (Site, and optional tier/model/payload filters).</li>
+      <li>Set <em>Triggers</em> (time cadence and/or usage hours).</li>
+      <li>Attach <em>Checklist Template</em> and pick a <em>Manager</em>.</li>
+      <li>Save. Work orders will be generated per cadence.</li>
+    </ol>
+  </div>
+  {{ block.super }}
+{% endblock %}

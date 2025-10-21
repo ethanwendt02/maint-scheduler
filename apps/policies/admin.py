@@ -1,63 +1,94 @@
+# apps/policies/admin.py
+from django.contrib import admin
 from django import forms
-from django.contrib import admin 
 from .models import MaintenancePolicy
 
-class MaintenancePolicyForm(forms.ModelForm):
-    scope_text = forms.CharField(
-        required=False,
-        help_text="Comma-separated scope values (e.g., spot_x, spot_y)."
-    )
-    threshold_text = forms.CharField(
-        required=False,
-        help_text="Key:Value pairs (e.g., battery:80, motor:90)."
-    )
 
+def _existing_fields(model, candidates):
+    """
+    Return a tuple of field names that actually exist on the model.
+    (Prevents admin crashes if a field isn't present.)
+    """
+    model_fields = {f.name for f in model._meta.get_fields()}
+    return tuple(f for f in candidates if f in model_fields)
+
+
+class MaintenancePolicyForm(forms.ModelForm):
     class Meta:
         model = MaintenancePolicy
         fields = "__all__"
+        # Tweak/expand help_texts to match your model
+        help_texts = {
+            "name": "E.g., “Quarterly PM – Spot”.",
+            "type": "Preventive / Corrective / Inspection.",
+            "priority": "P1 (urgent), P2 (normal), P3 (low).",
+            "published": "Enable to start generating work orders.",
+            # If these fields exist on your model, the help text will show automatically:
+            "site": "Which site this policy applies to.",
+            "tier": "Optional: limit to robots at this tier.",
+            "robot_type": "Optional: limit to this robot type.",
+            "payloads": "Optional: limit to robots with these payloads.",
+            "cadence_days": "Time-based cadence (days).",
+            "usage_hours": "Usage trigger (hours).",
+            "checklist_template": "Attach a checklist template to generate tasks.",
+            "manager": "Owner/assignee who is responsible.",
+            "sla_hours": "Target completion time in hours.",
+            "notify_slack": "Send notifications to the site’s Slack channel.",
+        }
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        if isinstance(self.instance.scope, list):
-            self.fields["scope_text"].initial = ", ".join(self.instance.scope)
-        if isinstance(self.instance.threshold, dict):
-            self.fields["threshold_text"].initial = ", ".join(f"{k}:{v}" for k, v in self.instance.threshold.items())
-
-    def clean(self):
-        cleaned = super().clean()
-        scope = cleaned.get("scope_text", "")
-        cleaned["scope"] = [s.strip() for s in scope.split(",") if s.strip()]
-
-        threshold = {}
-        for pair in cleaned.get("threshold_text", "").split(","):
-            if ":" in pair:
-                k, v = pair.split(":", 1)
-                threshold[k.strip()] = v.strip()
-        cleaned["threshold"] = threshold
-        return cleaned
-
-    def save(self, commit=True):
-        obj = super().save(commit=False)
-        obj.scope = self.cleaned_data.get("scope", [])
-        obj.threshold = self.cleaned_data.get("threshold", {})
-        if commit:
-            obj.save()
-        return obj
 
 @admin.register(MaintenancePolicy)
 class MaintenancePolicyAdmin(admin.ModelAdmin):
-    list_display = ("name", "site", "type", "priority", "published", "interval_days", "window_days", "updated_at")
-    list_filter = ("site", "type", "priority", "published")
-    search_fields = ("name", "site__name")
-    list_select_related = ("site",)
-    readonly_fields = ("created_at", "updated_at")
-    fieldsets = (
-        ("Basics", {"fields": ("name", "site", "type", "priority", "published")}),
-        ("Scope (optional)", {"fields": ("scope",)}),
-        ("Time-based", {"fields": ("interval_days", "window_days")}),
-        ("Usage-based", {"fields": ("counter", "interval_units")}),
-        ("Condition-based", {"fields": ("threshold",)}),
-        ("Docs & Checklist", {"fields": ("checklist_id", "docs_url")}),
-        ("Timestamps", {"fields": ("created_at", "updated_at")}),
+    form = MaintenancePolicyForm
+
+    # Basic list config (safe if some fields don't exist; Django ignores them in list_display)
+    list_display = _existing_fields(
+        MaintenancePolicy,
+        ("name", "type", "priority", "published"),
+    ) or ("name",)
+    list_filter = _existing_fields(
+        MaintenancePolicy,
+        ("type", "priority", "published"),
     )
+    search_fields = ("name",)
+    ordering = ("-published", "priority", "name")
+
+    # Show our step panels
+    change_list_template = "admin/policies/maintenancepolicy/change_list.html"
+    change_form_template = "admin/policies/maintenancepolicy/change_form.html"
+
+    # Fieldsets built dynamically so missing fields won't break admin
+    def get_fieldsets(self, request, obj=None):
+        M = MaintenancePolicy
+        basics = _existing_fields(M, ("name", "type", "priority", "published"))
+        scope = _existing_fields(M, ("site", "tier", "robot_type", "payloads"))
+        triggers = _existing_fields(M, ("cadence_days", "usage_hours"))
+        execution = _existing_fields(M, ("checklist_template", "manager"))
+        notify_sla = _existing_fields(M, ("sla_hours", "notify_slack"))
+
+        fieldsets = []
+        if basics:
+            fieldsets.append(("Basics", {"fields": basics}))
+        if scope:
+            fieldsets.append((
+                "Scope",
+                {"description": "Pick Site and optional robot filters.",
+                 "fields": scope}
+            ))
+        if triggers:
+            fieldsets.append((
+                "Triggers",
+                {"description": "Choose time and/or usage cadence.",
+                 "fields": triggers}
+            ))
+        if execution:
+            fieldsets.append((
+                "Execution",
+                {"description": "Attach checklist and assign owner.",
+                 "fields": execution}
+            ))
+        if notify_sla:
+            fieldsets.append(("Notifications & SLA", {"fields": notify_sla}))
+        return tuple(fieldsets)
+
 

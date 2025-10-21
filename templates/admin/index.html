@@ -1,0 +1,15 @@
+{% extends "admin/index.html" %}
+
+{% block content %}
+  <div class="module" style="margin-bottom:16px;">
+    <h2 style="margin:0 0 8px;">Start here</h2>
+    <ol style="margin:0 0 8px 18px;">
+      <li>Fleet → <strong>Sites</strong></li>
+      <li>Fleet → <strong>Payloads</strong></li>
+      <li>Fleet → <strong>Robots</strong></li>
+      <li>Checklists → <strong>Templates</strong> (optional)</li>
+      <li>Policies → <strong>Maintenance policies</strong></li>
+    </ol>
+  </div>
+  {{ block.super }}
+{% endblock %}
