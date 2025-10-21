@@ -1,5 +1,6 @@
 # apps/fleet/management/commands/import_robots_csv.py
 import csv
+import re
 import os
 import typing as t
 
@@ -37,6 +38,31 @@ def _extract_labeled(text: str, label: str) -> str:
     pat = rf"{re.escape(label)}\s*:\s*([^\n,]+)"
     m = re.search(pat, text, flags=re.IGNORECASE)
     return (m.group(1).strip() if m else "").strip()
+
+def _sanitize_serial(s: str, max_len: int = 60) -> str:
+    """
+    Try to extract a plausible robot serial from a blob.
+    - Prefer Spot-like codes (spot-XXXX...).
+    - Else cut at first comma/newline.
+    - Finally, hard-truncate to max_len.
+    """
+    if not s:
+        return ""
+    s = s.strip()
+
+    # 1) Spot-style pattern
+    m = re.search(r"(spot-[A-Za-z0-9_-]+)", s, flags=re.IGNORECASE)
+    if m:
+        return m.group(1)[:max_len]
+
+    # 2) cut at comma/newline
+    s = re.split(r"[\n,]", s, 1)[0].strip()
+
+    # 3) collapse spaces
+    s = re.sub(r"\s+", " ", s)
+
+    return s[:max_len]
+
 
 
 class Command(BaseCommand):
