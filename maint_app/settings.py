@@ -46,7 +46,6 @@ CSRF_TRUSTED_ORIGINS = [
 INSTALLED_APPS = [
     'apps.fleet',
     'apps.policies',
-    'apps.workorders',
     'apps.checklists',
     'apps.calendarfeed',
     'apps.accounts',
