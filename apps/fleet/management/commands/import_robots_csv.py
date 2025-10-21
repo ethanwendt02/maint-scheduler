@@ -1,7 +1,7 @@
 # apps/fleet/management/commands/import_robots_csv.py
 import csv
-import re
 import os
+import re
 import typing as t
 
 from django.core.management.base import BaseCommand, CommandError
@@ -29,22 +29,29 @@ def _split_multi(val: str, seps: str = ",;") -> t.List[str]:
 
 def _extract_labeled(text: str, label: str) -> str:
     """
-    From a blob like 'Serial: spot-BD-123, Wi-Fi Password: ...',
-    extract the value for the given label.
+    From a blob like 'Serial: spot-BD-123, Wi-Fi Password: ...', extract value for 'label'.
     """
     if not text:
         return ""
-    import re
     pat = rf"{re.escape(label)}\s*:\s*([^\n,]+)"
     m = re.search(pat, text, flags=re.IGNORECASE)
     return (m.group(1).strip() if m else "").strip()
 
+
+def _extract_any_label(text: str, labels: list[str]) -> str:
+    for lab in labels:
+        v = _extract_labeled(text, lab)
+        if v:
+            return v
+    return ""
+
+
 def _sanitize_serial(s: str, max_len: int = 60) -> str:
     """
-    Try to extract a plausible robot serial from a blob.
-    - Prefer Spot-like codes (spot-XXXX...).
-    - Else cut at first comma/newline.
-    - Finally, hard-truncate to max_len.
+    Try to extract a plausible robot serial from a blob and clamp to max_len.
+    - Prefer Spot-like codes (spot-XXXX...)
+    - Else cut at first comma/newline
+    - Collapse spaces, truncate hard
     """
     if not s:
         return ""
@@ -62,10 +69,6 @@ def _sanitize_serial(s: str, max_len: int = 60) -> str:
     s = re.sub(r"\s+", " ", s)
 
     return s[:max_len]
-
-serial = (serial or "").strip()
-serial = _sanitize_serial(serial, max_len=60)
-
 
 
 class Command(BaseCommand):
@@ -131,25 +134,30 @@ class Command(BaseCommand):
                 )
 
             for row in reader:
-                # Serial can be a blob column like "Robot Data"
+                # ---- Serial (may be a blob column like 'Robot Data')
                 raw_serial = (row.get(col["serial"]) or "").strip()
                 serial = raw_serial
                 if not serial or "Serial" in raw_serial:
                     extracted = _extract_labeled(raw_serial, "Serial")
                     if extracted:
                         serial = extracted
-                serial = (serial or "").strip()
+                serial = _sanitize_serial(serial, max_len=60)
 
                 if not serial:
                     skipped += 1
                     continue
 
-                model = (row.get(col["model"]) or row.get("Model") or "").strip() or "UNKNOWN"
-                site_name = (row.get(col["site"]) or row.get("Site") or "").strip()
-                location = (row.get(col["location"]) or row.get("Location") or "").strip()
-                tier = (row.get(col["tier"]) or row.get("Tier") or "").strip() or "P2"
-                status = (row.get(col["status"]) or row.get("Status") or "").strip() or "active"
-                slack_channel = (row.get(col["slack"]) or row.get("Slack Channel") or "").strip()
+                # ---- Other fields
+                model = (row.get(col.get("model", "Model")) or row.get("Model") or "").strip()
+                if not model:
+                    # try to derive model from blob if present
+                    model = _extract_any_label(raw_serial, ["Model", "Robot Model", "Name", "Robot"]) or "UNKNOWN"
+
+                site_name = (row.get(col.get("site", "Site")) or row.get("Site") or "").strip()
+                location = (row.get(col.get("location", "Location")) or row.get("Location") or "").strip()
+                tier = (row.get(col.get("tier", "Tier")) or row.get("Tier") or "").strip() or "P2"
+                status = (row.get(col.get("status", "Status")) or row.get("Status") or "").strip() or "active"
+                slack_channel = (row.get(col.get("slack", "Slack Channel")) or row.get("Slack Channel") or "").strip()
 
                 robot_type = (
                     row.get(col.get("robot_type", "Robot Type"))
@@ -158,13 +166,13 @@ class Command(BaseCommand):
                     or ""
                 ).strip()
 
-                manager_name = (row.get(col["manager_name"]) or row.get("Manager Name") or "").strip()
-                manager_email = (row.get(col["manager_email"]) or row.get("Manager Email") or "").strip()
+                manager_name = (row.get(col.get("manager_name", "Manager Name")) or row.get("Manager Name") or "").strip()
+                manager_email = (row.get(col.get("manager_email", "Manager Email")) or row.get("Manager Email") or "").strip()
 
-                licenses_raw = (row.get(col["licenses"]) or row.get("License Numbers") or "").strip()
+                licenses_raw = (row.get(col.get("licenses", "License Numbers")) or row.get("License Numbers") or "").strip()
                 licenses = _split_multi(licenses_raw, seps=license_seps)
 
-                payloads_raw = (row.get(col["payloads"]) or row.get("Payloads") or "").strip()
+                payloads_raw = (row.get(col.get("payloads", "Payloads")) or row.get("Payloads") or "").strip()
                 payload_names = _split_multi(payloads_raw, seps=payload_seps)
 
                 if preview and len(preview_rows) < preview:
@@ -177,7 +185,7 @@ class Command(BaseCommand):
                         "status": status,
                     })
 
-                # Upserts
+                # ---- Upserts
                 site = None
                 if site_name:
                     site, _ = Site.objects.get_or_create(name=site_name, defaults={"tz": "UTC"})
