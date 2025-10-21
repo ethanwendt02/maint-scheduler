@@ -85,12 +85,12 @@ class Command(BaseCommand):
 
         # Column mappings (match your CSV header names exactly; override as needed)
         parser.add_argument("--col-model", default="Model")
-        parser.add_argument("--col-serial", default="Serial")
+        parser.add_argument("--col-serial", default="Robot Data")
         parser.add_argument("--col-site", default="Site")
         parser.add_argument("--col-location", default="Deployment Location")
         parser.add_argument("--col-tier", default="Tier")
         parser.add_argument("--col-status", default="Status")
-        parser.add_argument("--col-robot-type", default="Robot Type")   # sometimes "Type"
+        parser.add_argument("--col-robot-type", default="Robot")   # sometimes "Type"
         parser.add_argument("--col-licenses", default="License Numbers")
         parser.add_argument("--col-payloads", default="Payloads")
         parser.add_argument("--col-manager-name", default="Manager Name")
