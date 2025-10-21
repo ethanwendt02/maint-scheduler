@@ -70,6 +70,10 @@ def _sanitize_serial(s: str, max_len: int = 60) -> str:
 
     return s[:max_len]
 
+def _clamp(s: t.Optional[str], n: t.Optional[int]) -> str:
+    s = (s or "").strip()
+    return s[:n] if n else s
+
 
 class Command(BaseCommand):
     help = "Import/Upsert Robots + Payloads from a CSV export (e.g., Notion). Upserts by Serial."
@@ -214,6 +218,16 @@ class Command(BaseCommand):
                     manager=manager,
                 )
 
+                # ----- Clamp strings to model field sizes (prevents varchar errors)
+                get_max = lambda field: getattr(Robot._meta.get_field(field), "max_length", None)
+
+                for field in ("model", "robot_type", "location", "tier", "status"):
+                    defaults[field] = _clamp(defaults.get(field), get_max(field))
+
+                # Also clamp serial again to be extra safe
+                serial = _clamp(serial, get_max("serial"))
+
+
                 try:
                     robot = Robot.objects.get(serial=serial)
                     changed = False
@@ -240,15 +254,21 @@ class Command(BaseCommand):
                     created += 1
 
                 if not dry:
+                    # clamp payload names before saving (avoid too-long payload name errors)
+                    p_max = getattr(Payload._meta.get_field("name"), "max_length", None)
                     payload_objs = []
                     for pname in payload_names:
+                        pname = _clamp(pname, p_max)
                         if not pname:
                             continue
                         p, _ = Payload.objects.get_or_create(name=pname)
                         payload_objs.append(p)
+
                     if robot is None:
                         robot = Robot.objects.get(serial=serial)
+
                     robot.payloads.set(payload_objs)
+
 
         if preview_rows:
             for i, pr in enumerate(preview_rows, 1):
