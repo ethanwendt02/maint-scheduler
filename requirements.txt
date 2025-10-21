@@ -14,3 +14,4 @@ dj-database-url
 Pillow==10.4.0
 slack_sdk>=3.27.1
  notion-client==2.2.1
+PyPDF2==3.0.1
