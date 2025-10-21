@@ -1,39 +1,26 @@
+# apps/workorders/admin.py
 from django.contrib import admin
+from django.utils.html import format_html
 from .models import WorkOrder
+from apps.checklists.models import ChecklistRunItem
 
+class ChecklistRunItemInline(admin.TabularInline):
+    model = ChecklistRunItem
+    extra = 0
+    fields = ("order", "text", "kit_items", "done", "notes", "completed_by", "completed_at")
+    readonly_fields = ("order", "text", "kit_items",)
+    classes = ("collapse",)  # remove this line if you want it expanded by default
 
 @admin.register(WorkOrder)
 class WorkOrderAdmin(admin.ModelAdmin):
-    """
-    Admin configuration for Work Orders.
-    """
+    list_display = ("id", "policy", "robot", "status", "checklist_progress")
+    list_filter = ("status", "policy")
+    search_fields = ("id", "robot__serial", "policy__name")
+    inlines = (ChecklistRunItemInline,)
 
-    list_display = (
-        "id",
-        "robot",
-        "site",
-        "type",
-        "priority",
-        "due_by",
-        "status",
-        "assigned_to",
-        "completed_at",
-    )
+    def checklist_progress(self, obj):
+        run = getattr(obj, "checklist_run", None)
+        if not run:
+            return "-"
+        return run.progress
 
-    list_filter = (
-        "status",
-        "priority",
-        "type",
-        "site",
-    )
-
-    search_fields = (
-        "id",
-        "robot__model",
-        "robot__serial",
-        "assigned_to__username",
-        "completed_by__username",
-    )
-
-    ordering = ("-due_by",)
-    date_hierarchy = "due_by"

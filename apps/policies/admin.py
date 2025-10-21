@@ -1,6 +1,7 @@
 # apps/policies/admin.py
 from django.contrib import admin
 from django import forms
+from django.utils.safestring import mark_safe
 from .models import MaintenancePolicy
 
 
@@ -37,6 +38,37 @@ class MaintenancePolicyForm(forms.ModelForm):
         }
 
 
+def _template_preview_html(policy: MaintenancePolicy) -> str:
+    """
+    Build an HTML ordered list of the attached checklist template's items.
+    Shows order, text, and optional kit items.
+    """
+    if not policy or not getattr(policy, "pk", None):
+        return "Save policy to preview template steps."
+    tmpl = getattr(policy, "checklist_template", None)
+    if not tmpl:
+        return "No checklist template attached."
+
+    # Expect a related name like `items` on the template; adjust if yours differs.
+    items_qs = getattr(tmpl, "items", None)
+    if not items_qs:
+        return "This checklist template has no items."
+    items = items_qs.all().order_by("order", "id")
+
+    if not items:
+        return "This checklist template has no items."
+
+    rows = []
+    for it in items:
+        kit = getattr(it, "kit_items", "") or ""
+        kit_html = f' <em style="color:#666;">(kit: {kit})</em>' if kit else ""
+        order = getattr(it, "order", 0)
+        text = getattr(it, "text", "")
+        rows.append(f"<li>#{order} {text}{kit_html}</li>")
+
+    return mark_safe(f"<ol>{''.join(rows)}</ol>")
+
+
 @admin.register(MaintenancePolicy)
 class MaintenancePolicyAdmin(admin.ModelAdmin):
     form = MaintenancePolicyForm
@@ -53,9 +85,12 @@ class MaintenancePolicyAdmin(admin.ModelAdmin):
     search_fields = ("name",)
     ordering = ("-published", "priority", "name")
 
-    # Show our step panels
+    # Show our step panels (from your earlier setup)
     change_list_template = "admin/policies/maintenancepolicy/change_list.html"
     change_form_template = "admin/policies/maintenancepolicy/change_form.html"
+
+    # ✅ New: include the preview as a readonly field
+    readonly_fields = ("_template_preview",)
 
     # Fieldsets built dynamically so missing fields won't break admin
     def get_fieldsets(self, request, obj=None):
@@ -81,14 +116,26 @@ class MaintenancePolicyAdmin(admin.ModelAdmin):
                 {"description": "Choose time and/or usage cadence.",
                  "fields": triggers}
             ))
-        if execution:
-            fieldsets.append((
-                "Execution",
-                {"description": "Attach checklist and assign owner.",
-                 "fields": execution}
-            ))
+        # Inject our preview into the Execution group, even if only the template exists.
+        exec_fields = list(execution) if execution else []
+        # Place the preview right after the template field when present.
+        if "checklist_template" in exec_fields:
+            idx = exec_fields.index("checklist_template") + 1
+            exec_fields.insert(idx, "_template_preview")
+        else:
+            exec_fields.append("_template_preview")
+
+        fieldsets.append((
+            "Execution",
+            {"description": "Attach checklist and assign owner.",
+             "fields": tuple(exec_fields)}
+        ))
+
         if notify_sla:
             fieldsets.append(("Notifications & SLA", {"fields": notify_sla}))
         return tuple(fieldsets)
 
-
+    # Renderer for the readonly preview field
+    def _template_preview(self, obj):
+        return _template_preview_html(obj)
+    _template_preview.short_description = "Checklist steps preview"

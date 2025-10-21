@@ -1,45 +1,61 @@
+# apps/checklists/models.py
 from django.db import models
-from django.contrib.auth import get_user_model
-from apps.workorders.models import WorkOrder
+from django.conf import settings
 
-User = get_user_model()
-
-
+# If you already have this, keep yours and remove this stub
 class ChecklistTemplate(models.Model):
-    """
-    A reusable checklist definition, e.g. "Falcon28 Cleaning v1".
-    """
+    name = models.CharField(max_length=200, unique=True)
+    description = models.TextField(blank=True, default="")
+    def __str__(self): return self.name
 
-    checklist_id = models.CharField(max_length=120, unique=True)  # e.g., "clean-fans-v1"
-    name = models.CharField(max_length=120)
-    version = models.CharField(max_length=20, default="v1")
-
-    # Items is a list of fields with structure like:
-    # [{ "id": "open_payload", "label": "Open payload", "required": true, "type": "checkbox" }]
-    items = models.JSONField(default=list, blank=True)
-    kit   = models.JSONField(default=list, blank=True)
-    requires_photos = models.BooleanField(default=False)
-
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    def __str__(self) -> str:
-        return f"{self.name} ({self.version})"
-
+class ChecklistItem(models.Model):
+    template = models.ForeignKey(ChecklistTemplate, related_name="items", on_delete=models.CASCADE)
+    order = models.PositiveIntegerField(default=0)
+    text = models.CharField(max_length=255)
+    required = models.BooleanField(default=True)
+    # Optional: “kit items” per step (free text or JSON)
+    kit_items = models.TextField(blank=True, default="", help_text="Comma-separated parts/tools")
+    class Meta:
+        ordering = ("order", "id")
+    def __str__(self): return f"[{self.order}] {self.text}"
 
 class ChecklistRun(models.Model):
-    """
-    A completed checklist tied to a specific WorkOrder.
-    """
-
-    template   = models.ForeignKey(ChecklistTemplate, on_delete=models.PROTECT)
-    work_order = models.ForeignKey('workorders.WorkOrder', on_delete=models.PROTECT, null=True, blank=True)
-    responses  = models.JSONField(default=dict, blank=True)      # item -> True/False
-    tools_used = models.JSONField(default=list, blank=True)      # NEW: list of tools ticked
-    photos     = models.JSONField(default=list, blank=True)
-    notes      = models.TextField(blank=True)
-    signed_by  = models.ForeignKey('auth.User', null=True, blank=True, on_delete=models.SET_NULL)
+    template = models.ForeignKey(ChecklistTemplate, related_name="runs", on_delete=models.PROTECT)
     created_at = models.DateTimeField(auto_now_add=True)
+    started_at = models.DateTimeField(null=True, blank=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+    )
 
-    def __str__(self) -> str:
-        return f"ChecklistRun for WO#{self.work_order.id}"
+    # optional generic link to what this run is for
+    # we'll also link it directly from WorkOrder (below)
+    def __str__(self): return f"Run of {self.template.name} @ {self.created_at:%Y-%m-%d}"
+
+    @property
+    def progress(self):
+        total = self.items.count()
+        if not total: return "0/0"
+        done = self.items.filter(done=True).count()
+        return f"{done}/{total}"
+
+class ChecklistRunItem(models.Model):
+    run = models.ForeignKey(ChecklistRun, related_name="items", on_delete=models.CASCADE)
+    template_item = models.ForeignKey(ChecklistItem, on_delete=models.PROTECT)
+    order = models.PositiveIntegerField(default=0)
+    text = models.CharField(max_length=255)
+    kit_items = models.TextField(blank=True, default="")
+    done = models.BooleanField(default=False)
+    notes = models.TextField(blank=True, default="")
+    completed_at = models.DateTimeField(null=True, blank=True)
+    completed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+    )
+
+    class Meta:
+        ordering = ("order", "id")
+
+    def __str__(self):
+        prefix = "✓" if self.done else "□"
+        return f"{prefix} {self.text}"
+
