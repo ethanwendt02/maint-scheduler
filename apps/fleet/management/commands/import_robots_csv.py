@@ -63,6 +63,9 @@ def _sanitize_serial(s: str, max_len: int = 60) -> str:
 
     return s[:max_len]
 
+serial = (serial or "").strip()
+serial = _sanitize_serial(serial, max_len=60)
+
 
 
 class Command(BaseCommand):
