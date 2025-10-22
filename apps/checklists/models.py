@@ -1,5 +1,18 @@
-# apps/checklists/models.py
+from django.conf import settings
 from django.db import models
+
+class ChecklistRun(models.Model):
+    template = models.ForeignKey("checklists.ChecklistTemplate", null=True, blank=True, on_delete=models.PROTECT)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL)
+    started_at = models.DateTimeField(auto_now_add=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ("-started_at",)
+
+    def __str__(self):
+        return f"Run of {self.template.name if self.template else 'Checklist'} @ {self.started_at:%Y-%m-%d %H:%M}"
+
 
 class ChecklistTemplate(models.Model):
     name = models.CharField(max_length=200, unique=True)
