@@ -1,5 +1,8 @@
 # apps/workorders/apps.py
 from django.apps import AppConfig
+import logging
+
+log = logging.getLogger(__name__)
 
 
 class WorkordersConfig(AppConfig):
@@ -9,7 +12,12 @@ class WorkordersConfig(AppConfig):
 
     def ready(self):
         """
-        This ensures that Django imports signals.py when the app loads,
-        so automatic checklist run creation and other hooks are active.
+        Try to load signals, but don't break the app if optional checklist-run
+        models aren't present (or are being refactored).
         """
-        from . import signals  # noqa
+        try:
+            from . import signals  # noqa: F401
+            log.debug("Workorders signals loaded.")
+        except Exception as e:
+            # Soft-disable signals if ChecklistRun/ChecklistRunItem aren't available
+            log.warning("Workorders signals disabled: %s", e)
