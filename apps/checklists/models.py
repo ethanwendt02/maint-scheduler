@@ -3,9 +3,19 @@ from django.db import models
 
 class ChecklistRun(models.Model):
     template = models.ForeignKey("checklists.ChecklistTemplate", null=True, blank=True, on_delete=models.PROTECT)
-    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL)
     started_at = models.DateTimeField(auto_now_add=True)
     completed_at = models.DateTimeField(null=True, blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True,
+        related_name='created_checklist_runs', on_delete=models.SET_NULL
+    )
+    signed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True,
+        related_name='signed_checklist_runs', on_delete=models.SET_NULL
+    )
+
+    def __str__(self):
+        return f"Run #{self.pk} - {self.template.name}"
 
     class Meta:
         ordering = ("-started_at",)
