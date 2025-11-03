@@ -1,33 +1,42 @@
+# apps/checklists/models.py
 from django.conf import settings
 from django.db import models
 
+
 class ChecklistRun(models.Model):
-    template = models.ForeignKey("checklists.ChecklistTemplate", null=True, blank=True, on_delete=models.PROTECT)
+    template = models.ForeignKey(
+        "checklists.ChecklistTemplate",
+        null=True, blank=True,
+        on_delete=models.PROTECT,
+    )
     started_at = models.DateTimeField(auto_now_add=True)
     completed_at = models.DateTimeField(null=True, blank=True)
     created_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL, null=True, blank=True,
-        related_name='created_checklist_runs', on_delete=models.SET_NULL
+        settings.AUTH_USER_MODEL,
+        null=True, blank=True,
+        related_name="created_checklist_runs",
+        on_delete=models.SET_NULL,
     )
     signed_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL, null=True, blank=True,
-        related_name='signed_checklist_runs', on_delete=models.SET_NULL
+        settings.AUTH_USER_MODEL,
+        null=True, blank=True,
+        related_name="signed_checklist_runs",
+        on_delete=models.SET_NULL,
     )
-
-    def __str__(self):
-        return f"Run #{self.pk} - {self.template.name}"
 
     class Meta:
         ordering = ("-started_at",)
 
     def __str__(self):
-        return f"Run of {self.template.name if self.template else 'Checklist'} @ {self.started_at:%Y-%m-%d %H:%M}"
+        # handles null template safely
+        name = self.template.name if self.template else "Checklist"
+        return f"Run of {name} @ {self.started_at:%Y-%m-%d %H:%M}"
 
 
 class ChecklistTemplate(models.Model):
     name = models.CharField(max_length=200, unique=True)
     description = models.TextField(blank=True, default="")
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True)   # ✅ timestamps
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
@@ -39,13 +48,12 @@ class ChecklistTemplate(models.Model):
 
 class ChecklistItem(models.Model):
     template = models.ForeignKey(
-        ChecklistTemplate, related_name="items", on_delete=models.CASCADE
+        ChecklistTemplate,
+        related_name="items",
+        on_delete=models.CASCADE,
     )
-    # NEW: optional grouping header for this item
     section = models.CharField(max_length=120, blank=True, db_index=True, default="")
-    # existing text of the step
     text = models.TextField()
-    # order within its template
     order = models.PositiveIntegerField(default=0)
 
     class Meta:
