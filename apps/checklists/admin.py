@@ -1,59 +1,43 @@
 # apps/checklists/admin.py
 from django.contrib import admin
-from django import forms
-
-from .models import ChecklistTemplate, ChecklistItem  # keep it minimal/safe
+from .models import ChecklistTemplate, ChecklistItem, ChecklistRun
 
 
-def _existing_fields(model, candidates):
-    """Return only the field names that truly exist on the model."""
-    have = {f.name for f in model._meta.get_fields()}
-    return tuple(f for f in candidates if f in have)
-
-
-# ----- Inline for ChecklistItem ------------------------------------------------
 class ChecklistItemInline(admin.TabularInline):
+    """
+    Inline editor for the NEW ChecklistItem rows (section, order, text).
+    """
     model = ChecklistItem
     extra = 0
-    ordering = ("order",)
-
-    # Only include columns that exist in your DB
-    fields = _existing_fields(
-        ChecklistItem,
-        ("order", "text", "is_kit", "requires_photo"),
-    ) or ("text",)
-    readonly_fields = ()
+    fields = ("section", "order", "text")
+    ordering = ("section", "order", "id")
     show_change_link = False
 
 
-# ----- Form for ChecklistTemplate (optional help texts) ------------------------
-class ChecklistTemplateForm(forms.ModelForm):
-    class Meta:
-        model = ChecklistTemplate
-        fields = "__all__"
-        help_texts = {
-            "name": "Template name shown in Policies and Work Orders.",
-            "description": "Optional: appears at the top of the run.",
-        }
-
-
-# ----- Admin for ChecklistTemplate --------------------------------------------
 @admin.register(ChecklistTemplate)
 class ChecklistTemplateAdmin(admin.ModelAdmin):
-    form = ChecklistTemplateForm
+    """
+    Template now has just: name, description, created_at, updated_at.
+    Items are edited via the inline above.
+    """
+    list_display = ("name", "created_at", "updated_at")
+    search_fields = ("name", "description")
+    ordering = ("name",)
+    readonly_fields = ("created_at", "updated_at")
+    fieldsets = (
+        ("Checklist Template", {"fields": ("name", "description")}),
+        ("Timestamps", {"fields": ("created_at", "updated_at")}),
+    )
     inlines = [ChecklistItemInline]
 
-    # be conservative here: only the columns we’re confident exist
-    list_display = _existing_fields(ChecklistTemplate, ("name",)) or ("__str__",)
-    search_fields = _existing_fields(ChecklistTemplate, ("name",)) or ()
-    ordering = ("name",)
 
-    # IMPORTANT: every fieldset **must** contain a "fields" key
-    def get_fieldsets(self, request, obj=None):
-        basics = _existing_fields(ChecklistTemplate, ("name", "description"))
-        # fall back to just the name if description is missing
-        if not basics:
-            basics = ("name",)
-        return (
-            ("Checklist Template", {"fields": basics}),
-        )
+@admin.register(ChecklistRun)
+class ChecklistRunAdmin(admin.ModelAdmin):
+    """
+    Simple view so you can inspect runs (optional).
+    """
+    list_display = ("id", "template", "started_at", "completed_at", "created_by", "signed_by")
+    list_filter = ("template", "created_by", "signed_by")
+    search_fields = ("template__name",)
+    ordering = ("-started_at",)
+    readonly_fields = ("started_at", "completed_at")
