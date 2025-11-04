@@ -1,26 +1,50 @@
 # apps/checklists/admin.py
 from django.contrib import admin
-from .models import ChecklistTemplate, ChecklistItem, ChecklistRun
+from django import forms
+from django.db import transaction
+from .models import ChecklistTemplate, ChecklistItem
 
+# ---- Forms --------------------------------------------------------------
+
+class ChecklistItemForm(forms.ModelForm):
+    class Meta:
+        model = ChecklistItem
+        fields = ("order", "section", "text")
+        widgets = {
+            "text": forms.Textarea(attrs={"rows": 2}),
+            "section": forms.TextInput(attrs={"placeholder": "Optional group header"}),
+        }
+
+    def clean_text(self):
+        txt = (self.cleaned_data.get("text") or "").strip()
+        if not txt:
+            raise forms.ValidationError("Item text cannot be empty.")
+        return txt
+
+class ChecklistTemplateForm(forms.ModelForm):
+    class Meta:
+        model = ChecklistTemplate
+        fields = ("name", "description")
+
+# ---- Inlines ------------------------------------------------------------
 
 class ChecklistItemInline(admin.TabularInline):
-    """
-    Inline editor for the NEW ChecklistItem rows (section, order, text).
-    """
     model = ChecklistItem
-    extra = 0
-    fields = ("section", "order", "text")
-    ordering = ("section", "order", "id")
+    form = ChecklistItemForm
+    extra = 1
+    fields = ("order", "section", "text")
+    ordering = ("order", "id")
     show_change_link = False
+    can_delete = True
 
+# ---- Admin --------------------------------------------------------------
 
 @admin.register(ChecklistTemplate)
 class ChecklistTemplateAdmin(admin.ModelAdmin):
-    """
-    Template now has just: name, description, created_at, updated_at.
-    Items are edited via the inline above.
-    """
-    list_display = ("name", "created_at", "updated_at")
+    form = ChecklistTemplateForm
+    inlines = [ChecklistItemInline]
+
+    list_display = ("name", "item_count", "created_at", "updated_at")
     search_fields = ("name", "description")
     ordering = ("name",)
     readonly_fields = ("created_at", "updated_at")
@@ -28,16 +52,35 @@ class ChecklistTemplateAdmin(admin.ModelAdmin):
         ("Checklist Template", {"fields": ("name", "description")}),
         ("Timestamps", {"fields": ("created_at", "updated_at")}),
     )
-    inlines = [ChecklistItemInline]
+    save_as = True  # handy: "Save as new"
 
+    def item_count(self, obj):
+        return obj.items.count()
+    item_count.short_description = "Items"
 
-@admin.register(ChecklistRun)
-class ChecklistRunAdmin(admin.ModelAdmin):
-    """
-    Simple view so you can inspect runs (optional).
-    """
-    list_display = ("id", "template", "started_at", "completed_at", "created_by", "signed_by")
-    list_filter = ("template", "created_by", "signed_by")
-    search_fields = ("template__name",)
-    ordering = ("-started_at",)
-    readonly_fields = ("started_at", "completed_at")
+    @transaction.atomic
+    def save_formset(self, request, form, formset, change):
+        """
+        Ensure every inline has a sane order, and belongs to this template.
+        """
+        instances = formset.save(commit=False)
+
+        # attach template + normalize order
+        # if order is blank/0, push it to the end
+        max_order = (
+            form.instance.items.aggregate(m=admin.models.Max("order"))["m"] or 0
+        )
+
+        for inst in instances:
+            inst.template = form.instance
+            if not inst.order or inst.order < 0:
+                max_order += 1
+                inst.order = max_order
+            inst.save()
+
+        # handle deletions
+        for obj in formset.deleted_objects:
+            obj.delete()
+
+        # do not call formset.save() again – we saved manually
+
