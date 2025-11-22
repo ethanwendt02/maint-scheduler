@@ -1,6 +1,8 @@
 # apps/policies/models.py
 from django.db import models
-from apps.fleet.models import Site   # ← add this import
+from apps.fleet.models import Site # ← add this import
+from apps.checklists.models import ChecklistTemplate
+
 
 class MaintenancePolicy(models.Model):
     """
@@ -28,13 +30,22 @@ class MaintenancePolicy(models.Model):
     counter = models.CharField(max_length=60, blank=True)
     interval_units = models.IntegerField(null=True, blank=True)
     threshold = models.JSONField(null=True, blank=True)
-
+    
     priority = models.CharField(max_length=4, default="P2")
     checklist_id = models.CharField(max_length=120, blank=True)
     docs_url = models.CharField(max_length=255, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    checklist_template = models.ForeignKey(
+    ChecklistTemplate,
+    null=True,
+    blank=True,
+    on_delete=models.SET_NULL,
+    related_name="policies"
+)
+
 
     def __str__(self) -> str:
         return self.name
