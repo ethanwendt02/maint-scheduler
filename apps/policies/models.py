@@ -1,6 +1,6 @@
 # apps/policies/models.py
 from django.db import models
-from apps.fleet.models import Site # ← add this import
+from apps.fleet.models import Site, Robot, Payload # ← add this import
 from apps.checklists.models import ChecklistTemplate
 
 
@@ -43,8 +43,26 @@ class MaintenancePolicy(models.Model):
     null=True,
     blank=True,
     on_delete=models.SET_NULL,
-    related_name="policies"
+    related_name="policies",
+    help_text="Person responsible for this maintenance policy.",
 )
+
+robots = models.ManyToManyField(
+    Robot,
+    blank=True,
+    related_name="maintenance_policies",
+    help_text="Robots this policy applies to.",
+)
+
+payloads = models.ManyToManyField (
+    Payload,
+    blank=True,
+    related_name="maintenance_policies",
+    help_text="Payloads this policy applies to.",
+)
+
+class Meta:
+    ordering = ("name",)
 
 
     def __str__(self) -> str:
