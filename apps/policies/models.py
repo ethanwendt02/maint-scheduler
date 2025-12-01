@@ -1,13 +1,13 @@
 # apps/policies/models.py
 from django.db import models
-from apps.fleet.models import Site, Robot, Payload # ← add this import
+from django.conf import settings
+from apps.fleet.models import Site, Robot, Payload
 from apps.checklists.models import ChecklistTemplate
 
 
 class MaintenancePolicy(models.Model):
     """
     Defines when and how maintenance should be generated for matching robots.
-    Scope is a small JSON like: {"model": "Falcon28", "site": "Excyte"}.
     """
     TYPE_CHOICES = (
         ("time", "Time"),
@@ -17,11 +17,17 @@ class MaintenancePolicy(models.Model):
 
     name = models.CharField(max_length=120)
 
-    # EXISTING: scope stores loose filters; keep it if you want
+    # Optional JSON scope (keep if you use it)
     scope = models.JSONField(default=dict, blank=True)
 
-    # NEW: first-class relationship + publish switch
-    site = models.ForeignKey(Site, on_delete=models.CASCADE, null=True, blank=True, related_name="policies")
+    site = models.ForeignKey(
+        Site,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="policies",
+    )
+
     published = models.BooleanField(default=False)
 
     type = models.CharField(max_length=16, choices=TYPE_CHOICES, default="time")
@@ -30,7 +36,7 @@ class MaintenancePolicy(models.Model):
     counter = models.CharField(max_length=60, blank=True)
     interval_units = models.IntegerField(null=True, blank=True)
     threshold = models.JSONField(null=True, blank=True)
-    
+
     priority = models.CharField(max_length=4, default="P2")
     checklist_id = models.CharField(max_length=120, blank=True)
     docs_url = models.CharField(max_length=255, blank=True)
@@ -39,31 +45,31 @@ class MaintenancePolicy(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     checklist_template = models.ForeignKey(
-    ChecklistTemplate,
-    null=True,
-    blank=True,
-    on_delete=models.SET_NULL,
-    related_name="policies",
-    help_text="Person responsible for this maintenance policy.",
-)
+        ChecklistTemplate,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="policies",
+        help_text="Checklist template associated with this policy.",
+    )
 
-robots = models.ManyToManyField(
-    Robot,
-    blank=True,
-    related_name="maintenance_policies",
-    help_text="Robots this policy applies to.",
-)
+    # ✅ FIXED: correctly indented inside class
+    robots = models.ManyToManyField(
+        Robot,
+        blank=True,
+        related_name="maintenance_policies",
+        help_text="Robots this policy applies to.",
+    )
 
-payloads = models.ManyToManyField (
-    Payload,
-    blank=True,
-    related_name="maintenance_policies",
-    help_text="Payloads this policy applies to.",
-)
+    payloads = models.ManyToManyField(
+        Payload,
+        blank=True,
+        related_name="maintenance_policies",
+        help_text="Payloads this policy applies to.",
+    )
 
-class Meta:
-    ordering = ("name",)
-
+    class Meta:
+        ordering = ("name",)
 
     def __str__(self) -> str:
         return self.name

@@ -73,52 +73,61 @@ def _template_preview_html(policy: MaintenancePolicy) -> str:
 class MaintenancePolicyAdmin(admin.ModelAdmin):
     form = MaintenancePolicyForm
 
-    # Basic list config (safe if some fields don't exist; Django ignores them in list_display)
+    # Columns in the changelist
     list_display = _existing_fields(
         MaintenancePolicy,
-        ("name", "type", "priority", "published"),
+        ("name", "site", "assigned_to", "checklist_template"),
     ) or ("name",)
+
     list_filter = _existing_fields(
         MaintenancePolicy,
-        ("type", "priority", "published"),
+        ("site", "assigned_to", "robots", "payloads"),
     )
-    search_fields = ("name",)
-    ordering = ("-published", "priority", "name")
 
-    # Show our step panels (from your earlier setup)
+    search_fields = ("name", "site__name", "assigned_to__username")
+    ordering = ("name",)  # old ("-published", "priority", "name") would now break
+
+    # Keep your custom templates
     change_list_template = "admin/policies/maintenancepolicy/change_list.html"
     change_form_template = "admin/policies/maintenancepolicy/change_form.html"
 
-    # ✅ New: include the preview as a readonly field
+    # Show the preview as a readonly field
     readonly_fields = ("_template_preview",)
 
-    # Fieldsets built dynamically so missing fields won't break admin
+    # Helpful for M2M
+    filter_horizontal = ("robots", "payloads")
+
     def get_fieldsets(self, request, obj=None):
         M = MaintenancePolicy
-        basics = _existing_fields(M, ("name", "type", "priority", "published"))
-        scope = _existing_fields(M, ("site", "tier", "robot_type", "payloads"))
-        triggers = _existing_fields(M, ("cadence_days", "usage_hours"))
-        execution = _existing_fields(M, ("checklist_template", "manager"))
-        notify_sla = _existing_fields(M, ("sla_hours", "notify_slack"))
+
+        # Basic info
+        basics = _existing_fields(M, ("name", "site", "assigned_to"))
+
+        # Scope: which robots/payloads this policy applies to
+        scope = _existing_fields(M, ("robots", "payloads"))
+
+        # Execution: template + preview
+        execution = _existing_fields(M, ("checklist_template",))
 
         fieldsets = []
+
         if basics:
-            fieldsets.append(("Basics", {"fields": basics}))
+            fieldsets.append((
+                "Basics",
+                {"fields": basics},
+            ))
+
         if scope:
             fieldsets.append((
                 "Scope",
-                {"description": "Pick Site and optional robot filters.",
-                 "fields": scope}
+                {
+                    "description": "Pick which robots and payloads this policy applies to.",
+                    "fields": scope,
+                },
             ))
-        if triggers:
-            fieldsets.append((
-                "Triggers",
-                {"description": "Choose time and/or usage cadence.",
-                 "fields": triggers}
-            ))
-        # Inject our preview into the Execution group, even if only the template exists.
+
+        # Inject preview into Execution section
         exec_fields = list(execution) if execution else []
-        # Place the preview right after the template field when present.
         if "checklist_template" in exec_fields:
             idx = exec_fields.index("checklist_template") + 1
             exec_fields.insert(idx, "_template_preview")
@@ -127,15 +136,15 @@ class MaintenancePolicyAdmin(admin.ModelAdmin):
 
         fieldsets.append((
             "Execution",
-            {"description": "Attach checklist and assign owner.",
-             "fields": tuple(exec_fields)}
+            {
+                "description": "Attach a checklist template and see a live preview of steps.",
+                "fields": tuple(exec_fields),
+            },
         ))
 
-        if notify_sla:
-            fieldsets.append(("Notifications & SLA", {"fields": notify_sla}))
         return tuple(fieldsets)
 
-    # Renderer for the readonly preview field
     def _template_preview(self, obj):
         return _template_preview_html(obj)
+
     _template_preview.short_description = "Checklist steps preview"
