@@ -1,8 +1,14 @@
 # apps/policies/models.py
 from django.db import models
 from django.conf import settings
+
+
+from django.contrib.auth.models import Group
+
 from apps.fleet.models import Site, Robot, Payload
 from apps.checklists.models import ChecklistTemplate
+
+
 
 
 class MaintenancePolicy(models.Model):
@@ -41,8 +47,6 @@ class MaintenancePolicy(models.Model):
     checklist_id = models.CharField(max_length=120, blank=True)
     docs_url = models.CharField(max_length=255, blank=True)
 
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
 
     checklist_template = models.ForeignKey(
         ChecklistTemplate,
@@ -53,20 +57,42 @@ class MaintenancePolicy(models.Model):
         help_text="Checklist template associated with this policy.",
     )
 
-    # ✅ FIXED: correctly indented inside class
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="owned_maintenance_policies",
+        help_text="Primary person responsible for this policy.",
+    )
+
+    # ✅ NEW: which group is responsible
+    owner_group = models.ForeignKey(
+        Group,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="maintenance_policies",
+        help_text="Group that owns this policy (e.g. Site Managers).",
+    )
+
+    # ✅ already added earlier:
     robots = models.ManyToManyField(
         Robot,
         blank=True,
         related_name="maintenance_policies",
         help_text="Robots this policy applies to.",
     )
-
     payloads = models.ManyToManyField(
         Payload,
         blank=True,
         related_name="maintenance_policies",
         help_text="Payloads this policy applies to.",
     )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
 
     class Meta:
         ordering = ("name",)

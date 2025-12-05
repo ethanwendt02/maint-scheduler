@@ -73,74 +73,53 @@ def _template_preview_html(policy: MaintenancePolicy) -> str:
 class MaintenancePolicyAdmin(admin.ModelAdmin):
     form = MaintenancePolicyForm
 
-    # Columns in the changelist
     list_display = _existing_fields(
         MaintenancePolicy,
-        ("name", "site", "assigned_to", "checklist_template"),
+        ("name", "type", "priority", "owner", "owner_group", "published"),
     ) or ("name",)
-
     list_filter = _existing_fields(
         MaintenancePolicy,
-        ("site", "assigned_to", "robots", "payloads"),
+        ("type", "priority", "owner_group", "published"),
+    )
+    search_fields = ("name",)
+
+    # handy for robots/payloads
+    filter_horizontal = _existing_fields(
+        MaintenancePolicy,
+        ("robots", "payloads"),
     )
 
-    search_fields = ("name", "site__name", "assigned_to__username")
-    ordering = ("name",)  # old ("-published", "priority", "name") would now break
-
-    # Keep your custom templates
-    change_list_template = "admin/policies/maintenancepolicy/change_list.html"
-    change_form_template = "admin/policies/maintenancepolicy/change_form.html"
-
-    # Show the preview as a readonly field
     readonly_fields = ("_template_preview",)
-
-    # Helpful for M2M
-    filter_horizontal = ("robots", "payloads")
 
     def get_fieldsets(self, request, obj=None):
         M = MaintenancePolicy
-
-        # Basic info
-        basics = _existing_fields(M, ("name", "site", "assigned_to"))
-
-        # Scope: which robots/payloads this policy applies to
-        scope = _existing_fields(M, ("robots", "payloads"))
-
-        # Execution: template + preview
-        execution = _existing_fields(M, ("checklist_template",))
+        basics = _existing_fields(M, ("name", "type", "priority", "published"))
+        scope = _existing_fields(M, ("site", "robots", "payloads"))
+        triggers = _existing_fields(M, ("interval_days", "window_days", "counter"))
+        execution = _existing_fields(
+            M,
+            ("checklist_template", "owner", "owner_group"),
+        )
+        notify_sla = _existing_fields(M, ("sla_hours", "notify_slack"))
 
         fieldsets = []
-
         if basics:
-            fieldsets.append((
-                "Basics",
-                {"fields": basics},
-            ))
-
+            fieldsets.append(("Basics", {"fields": basics}))
         if scope:
-            fieldsets.append((
-                "Scope",
-                {
-                    "description": "Pick which robots and payloads this policy applies to.",
-                    "fields": scope,
-                },
-            ))
+            fieldsets.append(("Scope", {"fields": scope}))
+        if triggers:
+            fieldsets.append(("Triggers", {"fields": triggers}))
 
-        # Inject preview into Execution section
         exec_fields = list(execution) if execution else []
         if "checklist_template" in exec_fields:
             idx = exec_fields.index("checklist_template") + 1
             exec_fields.insert(idx, "_template_preview")
         else:
             exec_fields.append("_template_preview")
+        fieldsets.append(("Execution", {"fields": tuple(exec_fields)}))
 
-        fieldsets.append((
-            "Execution",
-            {
-                "description": "Attach a checklist template and see a live preview of steps.",
-                "fields": tuple(exec_fields),
-            },
-        ))
+        if notify_sla:
+            fieldsets.append(("Notifications & SLA", {"fields": notify_sla}))
 
         return tuple(fieldsets)
 
@@ -148,3 +127,4 @@ class MaintenancePolicyAdmin(admin.ModelAdmin):
         return _template_preview_html(obj)
 
     _template_preview.short_description = "Checklist steps preview"
+
