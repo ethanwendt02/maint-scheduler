@@ -7,7 +7,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('checklists', '0008_pg_idempotent_cleanup'),
+        ('checklists', '0009_remove_checklistrun_created_at_checklistitem_section_and_more.py'),
         ('policies', '0003_alter_maintenancepolicy_counter_and_more'),
     ]
 
