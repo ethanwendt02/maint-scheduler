@@ -44,7 +44,7 @@ def safe_harden(apps, schema_editor):
     add_col_if_missing(
         "checklists_checklistitem",
         "section",
-        'section varchar(120) NOT NULL DEFAULT ""'
+        "section varchar(120) NOT NULL DEFAULT ''"
     )
 
 class Migration(migrations.Migration):
