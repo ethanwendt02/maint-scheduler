@@ -1,19 +1,37 @@
-from rest_framework import viewsets
+# apps/policies/views.py
+from django.contrib.auth.decorators import login_required
+from django.http import Http404, HttpResponse
+from django.shortcuts import get_object_or_404
+
 from .models import MaintenancePolicy
-from django.http import HttpResponse
 from .pdf import generate_policy_pdf
-from .serializers import MaintenancePolicySerializer
 
-def download_policy_pdf(request, pk):
-    policy = MaintenancePolicy.objects.get(pk=pk)
-    buffer = generate_policy_pdf(policy)
+def _can_view_policy_pdf(user, policy: MaintenancePolicy) -> bool:
+    # Superusers/admins can always download
+    if user.is_superuser or user.is_staff:
+        return True
 
-    response = HttpResponse(buffer, content_type='application/pdf')
-    response['Content-Disposition'] = f'attachment; filename="policy_{policy.pk}.pdf"'
-    return response
+    # Owner can download
+    if getattr(policy, "owner_id", None) == user.id:
+        return True
 
-class MaintenancePolicyViewSet(viewsets.ModelViewSet):
-    queryset = MaintenancePolicy.objects.all()
-    serializer_class = MaintenancePolicySerializer
+    # Anyone in the owner_group can download
+    owner_group = getattr(policy, "owner_group", None)
+    if owner_group and user.groups.filter(id=owner_group.id).exists():
+        return True
 
+    return False
 
+@login_required
+def maintenance_policy_pdf(request, pk: int):
+    policy = get_object_or_404(MaintenancePolicy, pk=pk)
+
+    if not _can_view_policy_pdf(request.user, policy):
+        raise Http404()
+
+    pdf_bytes = generate_policy_pdf(policy)
+
+    filename = f"maintenance_policy_{policy.pk}.pdf"
+    resp = HttpResponse(pdf_bytes, content_type="application/pdf")
+    resp["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return resp

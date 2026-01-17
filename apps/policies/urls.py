@@ -2,11 +2,11 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from . import views
+from .views import maintenance_policy_pdf
 
-router = DefaultRouter()
-router.register(r'policies', views.MaintenancePolicyViewSet, basename='policy')
+app_name = "policies"
 
 urlpatterns = [
-    path("", include(router.urls)),
+    path("polocoes/<int:pk>/pdf", maintenance_policy_pdf, name="policy_pdf"),
 ]
 

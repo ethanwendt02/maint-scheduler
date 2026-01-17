@@ -3,8 +3,9 @@ from django.contrib import admin
 from django import forms
 from django.utils.safestring import mark_safe
 from .models import MaintenancePolicy
-from django.urls import path
+from django.urls import path,reverse
 from django.http import HttpResponse
+from django.shortcuts import get_object_or_404
 from .pdf import generate_policy_pdf
 
 
@@ -117,7 +118,7 @@ class MaintenancePolicyAdmin(admin.ModelAdmin):
 
         exec_fields = list(execution) if execution else []
         exec_fields.insert(0, "download_pdf_button")
-        
+
         if "checklist_template" in exec_fields:
             idx = exec_fields.index("checklist_template") + 1
             exec_fields.insert(idx, "_template_preview")
@@ -164,6 +165,15 @@ class MaintenancePolicyAdmin(admin.ModelAdmin):
             ),
         ]
         return custom_urls + urls
+
+    def download_pdf_view(self, request, pk: int)
+        policy = get_object_or_404(MaintenancePolicy, pk=pk)
+        pdf_bytes = generate_policy_pdf(policy)
+
+        filename = f"maintenance_policy_{policy.pk}.pdf"
+        resp = HttpResponse(pdf_bytes, content_type="application/pdf")
+        resp["Content-Disposition"] = f'attachment; filename="{filename}"'
+        return resp
 
 
     def _template_preview(self, obj):
