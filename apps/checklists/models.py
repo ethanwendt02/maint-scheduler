@@ -4,6 +4,12 @@ from django.db import models
 
 
 class ChecklistRun(models.Model):
+    completed_pdf = models.FileField(
+        upload_to="completed_checklists/",
+        null=True,
+        blank=True,
+        help_text="Upload the completed checklist PDF"
+    )
     template = models.ForeignKey(
         "checklists.ChecklistTemplate",
         null=True, blank=True,
