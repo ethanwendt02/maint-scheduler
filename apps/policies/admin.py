@@ -3,6 +3,11 @@ from django.contrib import admin
 from django import forms
 from django.utils.safestring import mark_safe
 from .models import MaintenancePolicy
+from django.urls import path
+from django.http import HttpResponse
+from .pdf import generate_policy_pdf
+
+
 
 
 def _existing_fields(model, candidates):
@@ -89,7 +94,7 @@ class MaintenancePolicyAdmin(admin.ModelAdmin):
         ("robots", "payloads"),
     )
 
-    readonly_fields = ("_template_preview",)
+    readonly_fields = ("download_pdf_button", "_template_preview",)
 
     def get_fieldsets(self, request, obj=None):
         M = MaintenancePolicy
@@ -111,6 +116,8 @@ class MaintenancePolicyAdmin(admin.ModelAdmin):
             fieldsets.append(("Triggers", {"fields": triggers}))
 
         exec_fields = list(execution) if execution else []
+        exec_fields.insert(0, "download_pdf_button")
+        
         if "checklist_template" in exec_fields:
             idx = exec_fields.index("checklist_template") + 1
             exec_fields.insert(idx, "_template_preview")
@@ -122,6 +129,42 @@ class MaintenancePolicyAdmin(admin.ModelAdmin):
             fieldsets.append(("Notifications & SLA", {"fields": notify_sla}))
 
         return tuple(fieldsets)
+
+        # --- PDF button + endpoint ---
+
+    def download_pdf_button(self, obj):
+        if not obj or not obj.pk:
+            return "Save to enable PDF download"
+        return mark_safe(
+            f'<a class="button" href="{obj.pk}/download-pdf/">Download Policy PDF</a>'
+        )
+    download_pdf_button.short_description = "Policy PDF"
+
+    def download_pdf(self, request, pk):
+        policy = MaintenancePolicy.objects.get(pk=pk)
+        pdf_bytes = generate_policy_pdf(policy)  # bytes or BytesIO
+
+        # If your generator returns BytesIO, use: pdf_bytes.getvalue()
+        if hasattr(pdf_bytes, "getvalue"):
+            pdf_bytes = pdf_bytes.getvalue()
+
+        response = HttpResponse(pdf_bytes, content_type="application/pdf")
+        response["Content-Disposition"] = (
+            f'attachment; filename="maintenance_policy_{policy.pk}.pdf"'
+        )
+        return response
+
+    def get_urls(self):
+        urls = super().get_urls()
+        custom_urls = [
+            path(
+                "<int:pk>/download-pdf/",
+                self.admin_site.admin_view(self.download_pdf),
+                name="maintenancepolicy-download-pdf",
+            ),
+        ]
+        return custom_urls + urls
+
 
     def _template_preview(self, obj):
         return _template_preview_html(obj)

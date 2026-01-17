@@ -2,6 +2,8 @@
 {% load static %}
 
 {% block content %}
+
+  <!-- Existing Steps box -->
   <div class="module" style="margin-bottom:16px;">
     <h2 style="margin:0 0 8px;">Steps</h2>
     <ol style="margin:0 0 8px 18px;">
@@ -13,5 +15,26 @@
       <li>Save → verify Work orders tab for results.</li>
     </ol>
   </div>
+
+  <!-- ✅ NEW: Maintenance Records / Upload section -->
+  <div class="module" style="margin-bottom:16px;">
+    <h2 style="margin:0 0 8px;">Maintenance Records</h2>
+    <p style="margin:0 0 8px; color:#555;">
+      Upload completed and signed maintenance checklists from site managers.
+      These files serve as official maintenance records.
+    </p>
+
+    <ul style="margin-left:18px;">
+      <li>Accepted formats: PDF</li>
+      <li>Include photos, signatures, and timestamps</li>
+      <li>Files are stored for audit & compliance tracking</li>
+    </ul>
+
+    <p style="margin-top:8px; color:#777;">
+      <em>Uploads will appear once this policy has recorded completed maintenance.</em>
+    </p>
+  </div>
+
   {{ block.super }}
+
 {% endblock %}
