@@ -8,6 +8,11 @@ from .models import ChecklistTemplate, ChecklistRun
 from .serializers import ChecklistTemplateSerializer, ChecklistRunSerializer
 from apps.workorders.models import WorkOrder
 
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib.auth.decorators import login_required
+from django import forms
+from .models import ChecklistRun
+
 
 class ChecklistTemplateViewSet(viewsets.ReadOnlyModelViewSet):
     """
@@ -61,3 +66,21 @@ class ChecklistRunViewSet(viewsets.ModelViewSet):
         work_order.save(update_fields=["status", "completed_at", "completed_by"])
 
         return Response(ChecklistRunSerializer(run).data, status=status.HTTP_201_CREATED)
+
+class UploadChecklistForm(forms.ModelForm):
+    class Meta:
+        model = ChecklistRun
+        fields = ("completed_pdf", )
+
+@login_required
+def upload_completed_pdf(request, run_id):
+    run = get_object_or_404(ChecklistRun, pk=run_id)
+    if request.method == "POST":
+        form = UploadChecklistForm(request.POST, request.FILES, instance=run)
+        if form.is_valid():
+            form.save()
+            return redirect("success-page")
+    else:
+        form = UploadChecklistForm(instance=run)
+    return render(request, "upload_pdf.html", {"form": form})
+

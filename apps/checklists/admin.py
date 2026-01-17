@@ -39,7 +39,8 @@ class ChecklistRunAdmin(admin.ModelAdmin):
     """
     Admin for actual checklist runs. Again: only use the current fields.
     """
-    list_display = ("id", "template", "started_at", "completed_at", "created_by", "signed_by")
+    list_display = ("id", "template", "started_at", "completed_at", "created_by", "signed_by", "completed_pdf")
+    fields = ("template", "started_at", "completed_pdf")
     list_filter = ("template", "started_at", "completed_at")
     search_fields = ("template__name",)
     raw_id_fields = ("template", "created_by", "signed_by")
