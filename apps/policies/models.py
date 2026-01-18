@@ -8,7 +8,29 @@ from django.contrib.auth.models import Group
 from apps.fleet.models import Site, Robot, Payload
 from apps.checklists.models import ChecklistTemplate
 
+class MaintenanceRecord(models.Model):
+    policy = models.ForeignKey(
+        "policies.MaintenancePolicy",
+        on_delete=models.CASCADE,
+        related_name="records",
+    )
 
+    # Optional but useful:
+    uploaded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="uploaded_maintenance_records",
+    )
+
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    file = models.FileField(upload_to="maintenance_records/%Y/%m/%d/")
+    notes = models.CharField(max_length=255, blank=True, default="")
+
+    def __str__(self):
+        return f"Record for Policy #{self.policy_id} ({self.uploaded_at:%Y-%m-%d})"
 
 
 class MaintenancePolicy(models.Model):

@@ -7,6 +7,7 @@ from django.urls import path,reverse
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from .pdf import generate_policy_pdf
+from .models import MaintenanceRecord
 
 
 
@@ -74,10 +75,19 @@ def _template_preview_html(policy: MaintenancePolicy) -> str:
 
     return mark_safe(f"<ol>{''.join(rows)}</ol>")
 
+class MaintenanceRecordInline(admin.TabularInline):
+    model = MaintenanceRecord
+    extra = 0
+    fields = ("uploaded_at", "uploaded_by", "file", "notes")
+    readonly_fields = ("uploaded_at", "uploaded_by")
+
 
 @admin.register(MaintenancePolicy)
 class MaintenancePolicyAdmin(admin.ModelAdmin):
+    inlines = [MaintenanceRecordInline]
+
     form = MaintenancePolicyForm
+    
 
     list_display = _existing_fields(
         MaintenancePolicy,
