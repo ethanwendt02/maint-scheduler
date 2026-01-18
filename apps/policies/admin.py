@@ -166,7 +166,7 @@ class MaintenancePolicyAdmin(admin.ModelAdmin):
         ]
         return custom_urls + urls
 
-    def download_pdf_view(self, request, pk: int)
+    def download_pdf_view(self, request, pk: int):
         policy = get_object_or_404(MaintenancePolicy, pk=pk)
         pdf_bytes = generate_policy_pdf(policy)
 
