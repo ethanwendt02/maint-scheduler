@@ -34,7 +34,7 @@ urlpatterns = [
     path("portal/", include(("apps.portal.urls", "portal"), namespace="portal")),
 
     #pdf
-    path("", include("apps.policies.urls")),
+    path("policies/", include("apps.policies.urls")),
 ]
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

@@ -134,47 +134,38 @@ class MaintenancePolicyAdmin(admin.ModelAdmin):
         # --- PDF button + endpoint ---
 
     def download_pdf_button(self, obj):
-        if not obj or not obj.pk:
-            return "Save to enable PDF download"
-        return mark_safe(
-            f'<a class="button" href="{obj.pk}/download-pdf/">Download Policy PDF</a>'
-        )
+    if not obj or not obj.pk:
+        return "Save to enable PDF download"
+
+    url = reverse("admin:policies_maintenancepolicy_pdf", args=[obj.pk])
+    return mark_safe(f'<a class="button" href="{url}">Download Policy PDF</a>')
     download_pdf_button.short_description = "Policy PDF"
 
+
     def download_pdf(self, request, pk):
-        policy = MaintenancePolicy.objects.get(pk=pk)
-        pdf_bytes = generate_policy_pdf(policy)  # bytes or BytesIO
+    policy = get_object_or_404(MaintenancePolicy, pk=pk)
+    pdf_bytes = generate_policy_pdf(policy)
 
-        # If your generator returns BytesIO, use: pdf_bytes.getvalue()
-        if hasattr(pdf_bytes, "getvalue"):
-            pdf_bytes = pdf_bytes.getvalue()
+    if hasattr(pdf_bytes, "getvalue"):
+        pdf_bytes = pdf_bytes.getvalue()
 
-        response = HttpResponse(pdf_bytes, content_type="application/pdf")
-        response["Content-Disposition"] = (
-            f'attachment; filename="maintenance_policy_{policy.pk}.pdf"'
-        )
-        return response
+    filename = f"maintenance_policy_{policy.pk}.pdf"
+    response = HttpResponse(pdf_bytes, content_type="application/pdf")
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return response
+
 
     def get_urls(self):
-        urls = super().get_urls()
-        custom_urls = [
-            path(
-                "<int:pk>/download-pdf/",
-                self.admin_site.admin_view(self.download_pdf),
-                name="maintenancepolicy-download-pdf",
-            ),
-        ]
-        return custom_urls + urls
-
-    def download_pdf_view(self, request, pk: int):
-        policy = get_object_or_404(MaintenancePolicy, pk=pk)
-        pdf_bytes = generate_policy_pdf(policy)
-
-        filename = f"maintenance_policy_{policy.pk}.pdf"
-        resp = HttpResponse(pdf_bytes, content_type="application/pdf")
-        resp["Content-Disposition"] = f'attachment; filename="{filename}"'
-        return resp
-
+    urls = super().get_urls()
+    custom_urls = [
+        path(
+            "<int:pk>/pdf/",
+            self.admin_site.admin_view(self.download_pdf),
+            name="policies_maintenancepolicy_pdf",
+        ),
+    ]
+    return custom_urls + urls
+    
 
     def _template_preview(self, obj):
         return _template_preview_html(obj)
