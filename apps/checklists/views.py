@@ -83,5 +83,3 @@ def upload_completed_pdf(request, run_id):
     else:
         form = UploadChecklistForm(instance=run)
     return render(request, "upload_pdf.html", {"form": form})
-\
-|""
