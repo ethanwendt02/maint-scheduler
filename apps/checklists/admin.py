@@ -10,7 +10,7 @@ class ChecklistItemInline(admin.TabularInline):
     """
     model = ChecklistItem
     extra = 0
-    fields = ("order", "section", "text", "required")
+    fields = ("order", "section", "text", "required", "kit_items")
     ordering = ("order", "id")
     show_change_link = True
 
