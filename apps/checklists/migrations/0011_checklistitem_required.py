@@ -4,7 +4,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("checklists", "0010_XXXX"),  # <-- keep whatever dependency Django generated
+        ("checklists", "0010_chekclistitem_required.py"),  # <-- keep whatever dependency Django generated
     ]
 
     operations = [
