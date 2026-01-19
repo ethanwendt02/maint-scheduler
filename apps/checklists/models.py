@@ -62,6 +62,8 @@ class ChecklistItem(models.Model):
     text = models.TextField()
     order = models.PositiveIntegerField(default=0)
 
+    required = models.BooleanField(default=True)
+
     class Meta:
         ordering = ("template_id", "section", "order", "id")
 
