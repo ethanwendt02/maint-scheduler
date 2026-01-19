@@ -1,8 +1,11 @@
+from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse
-from django.shortcuts import get_object_or_404
+from django.shortcuts import get_object_or_404, redirect, render
+
+from .forms import MaintenanceRecordUploadForm
 from .models import MaintenancePolicy, MaintenanceRecord
-from .forms import MaintenanceUploadForm
 from .pdf import generate_policy_pdf
+
 
 @login_required
 def upload_maintenance_record(request, pk: int):
@@ -15,18 +18,13 @@ def upload_maintenance_record(request, pk: int):
             rec.policy = policy
             rec.uploaded_by = request.user
             rec.save()
-            return redirect("policies:policy_detail", pk=policy.pk)  # or wherever you want
+
+            # If you don't have a policy_detail page yet, use a safe redirect:
+            return redirect("/portal/")
     else:
         form = MaintenanceRecordUploadForm()
 
-    return render(
-    request,
-    "policies/upload_pdf.html",
-    {
-        "policy": policy,
-        "form": form,
-    },
-)
+    return render(request, "policies/upload_pdf.html", {"policy": policy, "form": form})
 
 
 def policy_pdf(request, pk: int):
@@ -40,4 +38,3 @@ def policy_pdf(request, pk: int):
     response = HttpResponse(pdf_bytes, content_type="application/pdf")
     response["Content-Disposition"] = f'inline; filename="{filename}"'
     return response
-
