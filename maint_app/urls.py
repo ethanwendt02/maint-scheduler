@@ -1,11 +1,10 @@
-# maint_app/urls.py
 from django.contrib import admin
 from django.conf import settings
 from django.conf.urls.static import static
 from django.urls import path, include
 from django.views.generic import RedirectView
 
-from apps.accounts.views import signup  # if you provide signup
+from apps.accounts.views import signup
 from django.contrib.auth.views import LogoutView
 
 urlpatterns = [
@@ -27,15 +26,15 @@ urlpatterns = [
     path("api/policies/", include("apps.policies.urls")),
     path("api/workorders/", include("apps.workorders.urls")),
     path("api/checklists/", include("apps.checklists.urls")),
-    path("calendar/", include("apps.calendarfeed.urls")),
     path("api/calendar/", include("apps.calendarfeed.urls")),
 
-    # Client portal (namespaced)
+    # Non-API pages
+    path("calendar/", include("apps.calendarfeed.urls")),
     path("portal/", include(("apps.portal.urls", "portal"), namespace="portal")),
 
-    #pdf
+    # Human-friendly policies routes (site manager links)
     path("policies/", include("apps.policies.urls")),
 ]
 
+# Serve uploaded media (dev + simple setups)
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
-
