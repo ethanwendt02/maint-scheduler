@@ -10,9 +10,14 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AddField(
-            model_name='checklistitem',
-            name='kit_items',
-            field=models.TextField(blank=True, default=''),
+        migrations.SeparateDatabaseAndState(
+            database_operations=[],
+            state_operations=[
+                migrations.AddField(
+                    model_name="checklistitem",
+                    name="kit_items",
+                    field=models.TextField(blank=True, default=""),
+                ),
+            ],
         ),
     ]
