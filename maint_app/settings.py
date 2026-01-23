@@ -109,20 +109,6 @@ DATABASES = {
     )
 }
 
-# Celery / Redis (Render typically provides REDIS_URL)
-CELERY_BROKER_URL = os.environ.get("REDIS_URL", "")
-CELERY_RESULT_BACKEND = os.environ.get("REDIS_URL", "")
-CELERY_ACCEPT_CONTENT = ["json"]
-CELERY_TASK_SERIALIZER = "json"
-CELERY_RESULT_SERIALIZER = "json"
-CELERY_TIMEZONE = TIME_ZONE
-
-# Good defaults for reliability
-CELERY_TASK_ACKS_LATE = True
-CELERY_TASK_REJECT_ON_WORKER_LOST = True
-CELERY_WORKER_PREFETCH_MULTIPLIER = 1
-
-
 
 
 # Password validation
@@ -154,6 +140,20 @@ TIME_ZONE = 'UTC'
 USE_I18N = True
 
 USE_TZ = True
+
+
+# Celery / Redis (Render typically provides REDIS_URL)
+CELERY_BROKER_URL = os.environ.get("REDIS_URL", "")
+CELERY_RESULT_BACKEND = os.environ.get("REDIS_URL", "")
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_TASK_SERIALIZER = "json"
+CELERY_RESULT_SERIALIZER = "json"
+CELERY_TIMEZONE = TIME_ZONE
+
+# Good defaults for reliability
+CELERY_TASK_ACKS_LATE = True
+CELERY_TASK_REJECT_ON_WORKER_LOST = True
+CELERY_WORKER_PREFETCH_MULTIPLIER = 1
 
 
 # Static files (CSS, JavaScript, Images)
