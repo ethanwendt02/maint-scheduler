@@ -1,29 +1,59 @@
+# apps/notifications/tasks.py
 from celery import shared_task
+from django.db import transaction
 from django.utils import timezone
-from datetime import timedelta
 
-from apps.workorders.models import WorkOrder
-from .utils import send_slack, send_email
-from .slack_blocks import wo_blocks
+from .models import NotificationLog
+from .utils import send_slack  # your adapter
 
-REMINDER_DAYS = (14, 3)
 
-@shared_task
-def send_due_reminders():
-    now = timezone.now()
-    for wo in WorkOrder.objects.filter(status__in=["planned", "assigned"]):
-        days_to_due = (wo.due_by.date() - now.date()).days
-        if days_to_due in REMINDER_DAYS:
-            text = f"Reminder: WO#{wo.id} for {wo.robot} at {wo.site} due {wo.due_by:%Y-%m-%d}."
-            blocks = wo_blocks(wo)
+@shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=10, retry_kwargs={"max_retries": 5})
+def send_notification_task(self, notification_id: int):
+    # 1) Lock + claim
+    with transaction.atomic():
+        instance = NotificationLog.objects.select_for_update().get(pk=notification_id)
 
-            # Force to #maintenance-scheduler (what you asked for).
-            # If your webhook doesn't allow overrides, remove `channel=` and keep the text label in footer.
-            send_slack("#maintenance-scheduler", text=text, blocks=blocks)
+        if instance.status != "queued":
+            return
+        if instance.channel != "Slack":
+            return
 
-            if wo.assigned_to and wo.assigned_to.email:
-                send_email([wo.assigned_to.email], "Maintenance Reminder", text)
+        instance.status = "sending"
+        instance.error = ""
+        instance.save(update_fields=["status", "error"])
 
-        if days_to_due == 0:
-            send_slack("#maintenance-scheduler", text=f"Today due: WO#{wo.id}", blocks=wo_blocks(wo))
+    # 2) Build message
+    channel = (instance.to or "").strip() or None
+    text = instance.subject or "(no subject)"
+    if instance.message:
+        text = f"*{text}*\n{instance.message}"
 
+    payload = instance.payload or {}
+    if payload.get("checklist"):
+        items = payload["checklist"]
+        bulleted = "\n".join([f"• {i}" for i in items])
+        text += f"\n\n*Checklist:*\n{bulleted}"
+
+    filepaths = payload.get("files") or []
+
+    # ✅ 3) EXTRA BULLETPROOFING GOES RIGHT HERE
+    try:
+        resp = send_slack(
+            channel=channel,
+            text=text,
+            blocks=None,
+            files=filepaths,
+            initial_comment="Attachments",
+        )
+    except Exception as exc:
+        instance.status = "failed"
+        instance.error = str(exc)
+        instance.save(update_fields=["status", "error"])
+        raise  # IMPORTANT: re-raise so Celery retries
+
+    # 4) Mark sent
+    instance.status = "sent"
+    instance.sent_at = timezone.now()
+    instance.error = ""
+    instance.save(update_fields=["status", "sent_at", "error"])
+    return resp

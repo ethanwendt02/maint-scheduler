@@ -1,38 +1,44 @@
-import os
-import requests
+# apps/notifications/utils.py
+from __future__ import annotations
+
 from typing import List, Optional, Dict, Any
 
-SLACK_WEBHOOK = os.getenv("SLACK_WEBHOOK")
+from .slack import post_message, upload_files
 
-def _post_to_slack(payload: Dict[str, Any]) -> None:
-    """
-    Low-level poster. No-ops if SLACK_WEBHOOK isn't set.
-    """
-    if not SLACK_WEBHOOK:
-        return
-    # Slack Incoming Webhooks expect JSON as the full message body.
-    requests.post(SLACK_WEBHOOK, json=payload, timeout=10)
 
 def send_slack(
     channel: Optional[str],
     text: str,
     blocks: Optional[list] = None,
-) -> None:
+    files: Optional[List[str]] = None,
+    initial_comment: str = "Attachments",
+) -> Dict[str, Any]:
     """
-    High-level helper. 
-    - If `blocks` is provided, Slack shows rich layout.
-    - `channel` is optional; if your webhook allows overriding, pass "#maintenance-scheduler".
+    Backwards-compatible wrapper used across the project.
+
+    Uses Slack Web API (bot token) via apps/notifications/slack.py
+    instead of legacy incoming webhook posts.
+
+    - channel: can be None (slack.py will fall back to env default)
+    - blocks: optional Block Kit
+    - files: optional list of file paths to upload (will thread under message)
     """
-    payload: Dict[str, Any] = {"text": text}
-    if channel:
-        payload["channel"] = channel  # works only if the webhook integration allows channel override
-    if blocks:
-        payload["blocks"] = blocks
-    _post_to_slack(payload)
+    resp = post_message(text=text, channel=channel, blocks=blocks)
+
+    # If a message posted successfully, you can thread file uploads under it
+    thread_ts = resp.get("ts")
+    if files:
+        upload_files(
+            filepaths=files,
+            channel=channel,
+            initial_comment=initial_comment,
+            thread_ts=thread_ts,
+        )
+
+    return resp
+
 
 def send_email(recipients: List[str], subject: str, body: str) -> None:
-    # stub: integrate SES/SendGrid; for dev just print
+    # Keep this stub (or wire SES/SendGrid later).
+    # The point is: don't break existing imports.
     print("EMAIL:", recipients, subject, body)
-
-
-
