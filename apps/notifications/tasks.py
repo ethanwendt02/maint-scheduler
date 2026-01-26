@@ -22,26 +22,29 @@ def send_notification_task(self, notification_id: int):
         instance.error = ""
         instance.save(update_fields=["status", "error"])
 
-    # 2) Build message
+    # 2) Build message (✅ use blocks so it's never blank)
     channel = (instance.to or "").strip() or None
-    text = instance.subject or "(no subject)"
+
+    # If your NotificationLog model has this helper, use it:
+    # It builds a full Slack layout using maintenance_policy/workorder/etc.
+    blocks = None
+    if hasattr(instance, "_as_slack_blocks"):
+        blocks = instance._as_slack_blocks()
+
+    # Slack API still wants a fallback "text" even when blocks exist
+    text = instance.subject or "Maintenance Scheduler Notification"
     if instance.message:
         text = f"*{text}*\n{instance.message}"
 
     payload = instance.payload or {}
-    if payload.get("checklist"):
-        items = payload["checklist"]
-        bulleted = "\n".join([f"• {i}" for i in items])
-        text += f"\n\n*Checklist:*\n{bulleted}"
-
     filepaths = payload.get("files") or []
 
-    # ✅ 3) EXTRA BULLETPROOFING GOES RIGHT HERE
+    # 3) EXTRA BULLETPROOFING (✅ keep this)
     try:
         resp = send_slack(
             channel=channel,
             text=text,
-            blocks=None,
+            blocks=blocks,         # ✅ send blocks instead of None
             files=filepaths,
             initial_comment="Attachments",
         )
@@ -49,7 +52,7 @@ def send_notification_task(self, notification_id: int):
         instance.status = "failed"
         instance.error = str(exc)
         instance.save(update_fields=["status", "error"])
-        raise  # IMPORTANT: re-raise so Celery retries
+        raise  # re-raise so Celery retries
 
     # 4) Mark sent
     instance.status = "sent"

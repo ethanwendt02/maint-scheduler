@@ -284,6 +284,11 @@ class NotificationLog(models.Model):
             blocks.append({"type": "divider"})
             blocks.extend(pb)
 
+        owner = getattr(policy, "owner", None)
+        mention = ""
+        if owner and hasattr(owner, "profile") and owner.profile.slack_user_id:
+            mention = f" (<@{owner.profile.slack_user_id}>)"
+
         # Footer/context
         if added_any:
             blocks.append({"type": "divider"})

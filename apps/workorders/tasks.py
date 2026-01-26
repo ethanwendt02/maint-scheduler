@@ -44,3 +44,14 @@ def generate_work_orders():
                 priority=pol.priority or "P2",
                 due_by=now + relativedelta(days=+pol.interval_days),
             )
+
+    # after creating wo
+    NotificationLog.objects.create(
+        kind="workorder_created",
+        status="queued",
+        channel="Slack",
+        to=policy.site.slack_channel or "",
+        subject=f"Work Order created for {robot.name}",
+        maintenance_policy=policy,
+        workorder=wo,
+    )
