@@ -1,14 +1,17 @@
+# apps/accounts/signals.py
+from django.contrib.auth import get_user_model
 from django.db.models.signals import post_save
 from django.dispatch import receiver
-from django.conf import settings
-from .models import UserProfile
-from django.contrib.auth import get_user_model
 
+from .models import Profile  # <-- MUST match your model name
 
-print("🔥 accounts.signals loaded")
-User  = get_user_model()
+User = get_user_model()
 
-@receiver(post_save, sender=settings.AUTH_USER_MODEL)
-def create_profile(sender, instance, created, **kwargs):
+@receiver(post_save, sender=User)
+def ensure_profile_exists(sender, instance, created, **kwargs):
+    # create for new users
     if created:
-        UserProfile.objects.create(user=instance)
+        Profile.objects.get_or_create(user=instance)
+    else:
+        # optional: ensure older users also have one when they get saved
+        Profile.objects.get_or_create(user=instance)

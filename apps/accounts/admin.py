@@ -1,3 +1,20 @@
 from django.contrib import admin
+from django.contrib.auth import get_user_model
+from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 
-# Register your models here.
+from .models import Profile
+
+User = get_user_model()
+
+class ProfileInline(admin.StackedInline):
+    model = Profile
+    can_delete = False
+    extra = 0
+    fields = ("slack_user_id",)
+
+# Unregister + reregister User with inline
+admin.site.unregister(User)
+
+@admin.register(User)
+class UserAdmin(DjangoUserAdmin):
+    inlines = (ProfileInline,)
