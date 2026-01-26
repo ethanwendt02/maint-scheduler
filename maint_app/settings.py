@@ -48,7 +48,6 @@ CSRF_TRUSTED_ORIGINS = [
 
 INSTALLED_APPS = [
     'apps.fleet',
-    'apps.policies',
     'apps.checklists',
     'apps.calendarfeed',
     'apps.accounts',
@@ -64,7 +63,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'django_filters',
     'apps.workorders.apps.WorkordersConfig',
-     "apps.policies.apps.PoliciesConfig",
+    'apps.policies.apps.PoliciesConfig',
 ]
 
 MIDDLEWARE = [
