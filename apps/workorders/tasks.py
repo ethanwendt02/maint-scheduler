@@ -49,7 +49,7 @@ def generate_work_orders():
     NotificationLog.objects.create(
         kind="workorder_created",
         status="queued",
-        channel="Slack",
+        channel="slack",
         to=policy.site.slack_channel or "",
         subject=f"Work Order created for {robot.name}",
         maintenance_policy=policy,

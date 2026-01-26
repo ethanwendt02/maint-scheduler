@@ -73,7 +73,7 @@ def send_notification_task(self, notification_id: int):
 
         if instance.status != "queued":
             return
-        if instance.channel != "Slack":
+        if instance.channel != "slack":
             return
 
         instance.status = "sending"
