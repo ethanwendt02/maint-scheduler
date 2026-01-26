@@ -105,3 +105,9 @@ def send_notification_task(self, notification_id: int):
     instance.error = ""
     instance.save(update_fields=["status", "sent_at", "error"])
     return resp
+
+@shared_task
+def send_queued_notifications(limit=50):
+    qs = NotificationLog.objects.filter(status=STATUS_QUEUED).order_by("created_at")[:limit]
+    for n in qs:
+        n.send()

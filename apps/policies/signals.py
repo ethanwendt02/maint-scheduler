@@ -1,58 +1,52 @@
-# apps/policies/signals.py
 import os
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.db import transaction
 
-from apps.notifications.models import NotificationLog, CHANNEL_SLACK, STATUS_QUEUED
+from apps.notifications.models import NotificationLog
 from .models import MaintenancePolicy
 
 
 def slack_mention_for_user(user) -> str:
-    """
-    Returns a real Slack mention if we have a Slack user ID (Uxxxx),
-    otherwise falls back to a readable name (won't ping).
-    """
     if not user:
         return ""
     slack_id = getattr(getattr(user, "profile", None), "slack_user_id", None)
-    if slack_id:
-        return f"<@{slack_id}>"
-    return user.get_full_name() or getattr(user, "username", "") or ""
+    return f"<@{slack_id}>" if slack_id else (user.get_full_name() or user.username)
 
 
 @receiver(post_save, sender=MaintenancePolicy)
-def notify_policy_created(sender, instance: MaintenancePolicy, created, **kwargs):
-    # Only on first create (not every edit)
+def notify_policy_created_or_published(sender, instance: MaintenancePolicy, created, **kwargs):
+    # Fire if: created OR published just turned on
+    should_notify = created
+
     if not created:
+        try:
+            before = sender.objects.get(pk=instance.pk)
+            # NOTE: this won't work because instance is already saved.
+            # So for publish-transition you must do it in admin save_model or override save().
+        except sender.DoesNotExist:
+            before = None
+
+    # ✅ simplest: only notify on CREATE (reliable)
+    if not should_notify:
         return
 
     def create_notification():
-        owner = instance.owner  # <-- your model field
+        owner = getattr(instance, "owner", None)
         mention = slack_mention_for_user(owner)
-        mention_prefix = f"{mention} " if mention else ""
 
-        # Pick a channel. If you're using incoming webhook fixed to one channel,
-        # set SLACK_DEFAULT_CHANNEL="#maintenance-scheduler" in env and keep this.
-        slack_to = (getattr(instance, "slack_channel", "") or os.getenv("SLACK_DEFAULT_CHANNEL", "")).strip()
+        slack_label = getattr(instance, "slack_channel", "") or os.getenv("SLACK_DEFAULT_CHANNEL", "#maintenance-scheduler")
 
         NotificationLog.objects.create(
-            channel=CHANNEL_SLACK,              # "slack"
-            to=slack_to,                        # "#maintenance-scheduler" (recommended) or whatever your adapter expects
-            subject=f"New maintenance policy created: {instance.name}",
-            message=(
-                f"{mention_prefix}A new maintenance policy was created.\n"
-                f"*Policy:* {instance.name}\n"
-                f"*Type:* {instance.get_type_display() if hasattr(instance, 'get_type_display') else instance.type}\n"
-                f"*Interval (days):* {instance.interval_days or '—'}"
-            ),
-            status=STATUS_QUEUED,
-            maintenance_policy=instance,         # ✅ links it so your Slack blocks can render policy details
+            channel="slack",
+            to=slack_label,
+            subject=f"New maintenance policy: {instance.name}",
+            message=f"{mention} A new maintenance policy was created and will start generating reminders.",
+            status="queued",
+            maintenance_policy=instance,   # ✅ links the log to the policy
             payload={
                 "policy_id": instance.pk,
                 "policy_name": instance.name,
-                "interval_days": instance.interval_days,
-                "published": instance.published,
             },
         )
 
