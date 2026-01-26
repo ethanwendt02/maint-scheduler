@@ -50,7 +50,7 @@ INSTALLED_APPS = [
     'apps.fleet',
     'apps.checklists',
     'apps.calendarfeed',
-    'apps.accounts',
+    "apps.accounts.apps.AccountsConfig",
     'apps.portal',
     'apps.notifications.apps.NotificationsConfig',
     
