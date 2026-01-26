@@ -9,13 +9,11 @@ User = get_user_model()
 
 class ProfileInline(admin.StackedInline):
     model = Profile
-    fk_name = "user"
-    extra = 0              # ✅ NO blank extra row
-    max_num = 1            # ✅ hard cap
     can_delete = False
+    extra = 0
+    max_num = 1
 
     def has_add_permission(self, request, obj=None):
-        # ✅ Only allow adding a profile if the user truly has none yet
         if obj is None:
             return True
         return not Profile.objects.filter(user=obj).exists()
