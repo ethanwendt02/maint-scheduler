@@ -119,6 +119,12 @@ class MaintenancePolicy(models.Model):
     next_reminder_at = models.DateTimeField(null=True, blank=True, db_index=True)
     last_reminded_at = models.DateTimeField(null=True, blank=True)
 
+    def save(self, *args, **kwargs):
+        # auto-seed next_reminder_at on first save if published and interval is set
+        if self.next_reminder_at is None and self.interval_days:
+            self.next_reminder_at = timezone.now()
+        super().save(*args, **kwargs)
+
     def compute_next_reminder(self):
         if self.type != "time" or not self.interval_days:
             return None
