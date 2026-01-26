@@ -9,8 +9,7 @@ User = get_user_model()
 class ProfileInline(admin.StackedInline):
     model = Profile
     can_delete = False
-    extra = 0
-    fields = ("slack_user_id",)
+    extra = 0  # IMPORTANT: prevents blank extra form that tries to create a new one
 
 # Unregister + reregister User with inline
 admin.site.unregister(User)
