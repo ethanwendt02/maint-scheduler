@@ -115,6 +115,16 @@ class MaintenancePolicy(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    # ✅ NEW: reminder state
+    next_reminder_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    last_reminded_at = models.DateTimeField(null=True, blank=True)
+
+    def compute_next_reminder(self):
+        if self.type != "time" or not self.interval_days:
+            return None
+        base = self.last_reminded_at or timezone.now()
+        return base + timedelta(days=self.interval_days)
+
 
     class Meta:
         ordering = ("name",)

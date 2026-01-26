@@ -64,6 +64,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'django_filters',
     'apps.workorders.apps.WorkordersConfig',
+     "apps.policies.apps.PoliciesConfig",
 ]
 
 MIDDLEWARE = [

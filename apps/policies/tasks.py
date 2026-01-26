@@ -3,44 +3,62 @@ import os
 from datetime import timedelta
 from celery import shared_task
 from django.utils import timezone
+from django.db import transaction
 
 from apps.notifications.models import NotificationLog
-from .models import MaintenancePolicy  # adjust import
+from apps.notifications.tasks import send_notification_task
+from .models import MaintenancePolicy
 
 
 def slack_mention_for_user(user) -> str:
+    if not user:
+        return ""
     slack_id = getattr(getattr(user, "profile", None), "slack_user_id", None)
     return f"<@{slack_id}>" if slack_id else (user.get_full_name() or user.username)
 
 
 @shared_task
-def send_due_policy_reminders():
-    today = timezone.localdate()
+def process_policy_reminders():
+    now = timezone.now()
 
-    # You’ll need some “due” logic. Examples:
-    # - instance.next_due_date exists
-    # - OR compute from last_completed + frequency_days
-    due_qs = MaintenancePolicy.objects.filter(active=True, next_due_date__lte=today)
+    qs = MaintenancePolicy.objects.filter(
+        published=True,
+        type="time",
+        interval_days__isnull=False,
+        next_reminder_at__isnull=False,
+        next_reminder_at__lte=now,
+    ).select_related("owner")
 
-    for policy in due_qs:
-        manager = getattr(policy, "manager", None)
-        mention = slack_mention_for_user(manager) if manager else ""
+    for policy in qs:
+        with transaction.atomic():
+            policy = MaintenancePolicy.objects.select_for_update().get(pk=policy.pk)
 
-        NotificationLog.objects.create(
-            channel="Slack",
-            to=getattr(policy, "slack_channel", None) or os.getenv("SLACK_DEFAULT_CHANNEL", ""),
-            subject=f"Maintenance due: {policy.name}",
-            message=f"{mention} This maintenance is due now. Please complete it.",
-            status="queued",
-            payload={
-                "policy_name": policy.name,
-                "frequency_days": getattr(policy, "frequency_days", None),
-                "due_date": str(getattr(policy, "next_due_date", "")),
-                "url": f"{os.getenv('BASE_URL','').rstrip('/')}/admin/policies/maintenancepolicy/{policy.pk}/change/",
-            },
-        )
+            # re-check under lock
+            if not policy.next_reminder_at or policy.next_reminder_at > timezone.now():
+                continue
 
-        # bump next due date forward so you don’t spam every run
-        freq = getattr(policy, "frequency_days", None) or 7
-        policy.next_due_date = (policy.next_due_date or today) + timedelta(days=int(freq))
-        policy.save(update_fields=["next_due_date"])
+            mention = slack_mention_for_user(policy.owner)
+
+            channel = os.getenv("SLACK_DEFAULT_CHANNEL", "#maintenance-scheduler")
+            base_url = os.getenv("BASE_URL", "").rstrip("/")
+            admin_url = f"{base_url}/admin/policies/maintenancepolicy/{policy.pk}/change/" if base_url else ""
+
+            nl = NotificationLog.objects.create(
+                channel="Slack",
+                to=channel,
+                subject=f"Maintenance due: {policy.name}",
+                message=f"{mention} Maintenance is due for *{policy.name}*.\n{admin_url}",
+                status="queued",
+                payload={
+                    "policy_id": policy.pk,
+                    "policy_name": policy.name,
+                    "interval_days": policy.interval_days,
+                    "admin_url": admin_url,
+                },
+            )
+
+            send_notification_task.delay(nl.pk)
+
+            policy.last_reminded_at = now
+            policy.next_reminder_at = now + timedelta(days=int(policy.interval_days))
+            policy.save(update_fields=["last_reminded_at", "next_reminder_at"])
