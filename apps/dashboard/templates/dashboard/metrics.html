@@ -1,62 +1,65 @@
 <!doctype html>
-{%load static%}
+{% load static %}
 <html>
 <head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Maintenance Dashboard</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 24px; }
+    h1 { margin: 0 0 6px 0; }
+    .sub { color: #555; margin-bottom: 18px; }
+    .grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; }
+    .card { border: 1px solid #e5e5e5; border-radius: 12px; padding: 14px; background: #fff; }
+    .kpi-label { font-size: 12px; color: #666; margin-bottom: 8px; }
+    .kpi-value { font-size: 28px; font-weight: 700; }
+    .row { display: grid; grid-template-columns: 2fr 1fr; gap: 12px; margin-top: 12px; }
+    .chart-wrap { height: 360px; }
+    @media (max-width: 1100px) {
+      .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .row { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+
+<body>
+  <!-- Header (ONLY HERE, not in <head>) -->
   <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 6px;">
 
-  <!-- Left: Logo + Title -->
-  <div style="display:flex; align-items:center; gap:16px;">
-    <img
-      src="{% static 'images/logo.png' %}"
-      alt="FieldAI"
-      style="height:46px; width:auto;"
-    />
-    <div>
-      <h1 style="margin:0;">Maintenance Dashboard</h1>
-      <div class="sub" style="margin:0;">
-        KPIs + trends (last {{ weekly_lookback_weeks }} weeks, Top {{ top_n }} policies, completions last {{ completed_lookback_days }} days)
+    <!-- Left: Logo + Title -->
+    <div style="display:flex; align-items:center; gap:16px;">
+      <img
+        src="{% static 'images/logo.png' %}"
+        alt="FieldAI"
+        style="height:46px; width:auto;"
+      />
+      <div>
+        <h1 style="margin:0;">Maintenance Dashboard</h1>
+        <div class="sub" style="margin:0;">
+          KPIs + trends (last {{ weekly_lookback_weeks }} weeks, Top {{ top_n }} policies, completions last {{ completed_lookback_days }} days)
+        </div>
       </div>
     </div>
+
+    <!-- Right: Admin Button -->
+    <a href="/admin/"
+       style="
+          padding:6px 14px;
+          border-radius:20px;
+          background-color:#F97316;
+          color:white;
+          font-size:13px;
+          font-weight:600;
+          text-decoration:none;
+          transition:all 0.2s ease;
+       "
+       onmouseover="this.style.opacity='0.85'"
+       onmouseout="this.style.opacity='1'">
+       Admin
+    </a>
   </div>
 
-  <!-- Right: Admin Button -->
-  <a href="/admin/"
-     style="
-        padding:6px 14px;
-        border-radius:20px;
-        background-color:#F97316;
-        color:white;
-        font-size:13px;
-        font-weight:600;
-        text-decoration:none;
-        transition:all 0.2s ease;
-     "
-     onmouseover="this.style.opacity='0.85'"
-     onmouseout="this.style.opacity='1'">
-     Admin
-  </a>
-
-</div>
-<div style="height:12px;"></div>
-
-</head>
-<body>
-    <div style="display:flex; align-items:center; gap:16px; margin-bottom: 6px;">
-    <img
-      src="{% static 'images/logo.png' %}"
-      alt="FieldAI"
-      style="height:46px; width:auto;"
-    />
-    <div>
-      <h1 style="margin:0;">Maintenance Dashboard</h1>
-      <div class="sub" style="margin:0;">
-        KPIs + trends (last {{ weekly_lookback_weeks }} weeks, Top {{ top_n }} policies, completions last {{ completed_lookback_days }} days)
-      </div>
-    </div>
-  </div>
-    <div style="height:12px;"></div>
-
-
+  <div style="height:12px;"></div>
 
   <div class="grid">
     <div class="card">
@@ -68,8 +71,8 @@
       <div class="kpi-value">{{ kpi.total_policies }}</div>
     </div>
     <div class="card">
-        <div class="kpi-label">Completed cycles ({{ completed_lookback_days }}d)</div>
-        <div class="kpi-value">{{ kpi.completed_last_30d }}</div>
+      <div class="kpi-label">Completed cycles ({{ completed_lookback_days }}d)</div>
+      <div class="kpi-value">{{ kpi.completed_last_30d }}</div>
     </div>
     <div class="card">
       <div class="kpi-label">Due soon ({{ due_soon_days }}d)</div>
@@ -116,47 +119,47 @@
     const topCounts = JSON.parse(document.getElementById("top-policy-counts").textContent);
 
     new Chart(document.getElementById("weeklyChart"), {
-  type: "line",
-  data: {
-    labels: weeklyLabels,
-    datasets: [{
-      label: "Completed",
-      data: weeklyCounts,
-      tension: 0.25,
-      borderColor: "#F97316",          // orange
-      pointBackgroundColor: "#F97316", // orange points
-      backgroundColor: "rgba(249,115,22,0.12)", // subtle fill
-      fill: true
-    }]
-  },
-  options: {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: { legend: { display: false } },
-    scales: { y: { beginAtZero: true } }
-  }
-});
+      type: "line",
+      data: {
+        labels: weeklyLabels,
+        datasets: [{
+          label: "Completed",
+          data: weeklyCounts,
+          tension: 0.25,
+          borderColor: "#F97316",
+          pointBackgroundColor: "#F97316",
+          backgroundColor: "rgba(249,115,22,0.12)",
+          fill: true
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: { y: { beginAtZero: true } }
+      }
+    });
 
-new Chart(document.getElementById("topPoliciesChart"), {
-  type: "bar",
-  data: {
-    labels: topLabels,
-    datasets: [{
-      label: "Completed",
-      data: topCounts,
-      backgroundColor: "rgba(249,115,22,0.25)",
-      borderColor: "#F97316",
-      borderWidth: 1
-    }]
-  },
-  options: {
-    indexAxis: "y",
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: { legend: { display: false } },
-    scales: { x: { beginAtZero: true } }
-  }
-});
+    new Chart(document.getElementById("topPoliciesChart"), {
+      type: "bar",
+      data: {
+        labels: topLabels,
+        datasets: [{
+          label: "Completed",
+          data: topCounts,
+          backgroundColor: "rgba(249,115,22,0.25)",
+          borderColor: "#F97316",
+          borderWidth: 1
+        }]
+      },
+      options: {
+        indexAxis: "y",
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: { x: { beginAtZero: true } }
+      }
+    });
   </script>
 </body>
 </html>
