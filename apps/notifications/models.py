@@ -284,10 +284,20 @@ class NotificationLog(models.Model):
             blocks.append({"type": "divider"})
             blocks.extend(pb)
 
-        owner = getattr(policy, "owner", None)
+                # Mention the policy owner (if available)
+        pol = self.maintenance_policy  # may be None
         mention = ""
-        if owner and hasattr(owner, "profile") and owner.profile.slack_user_id:
-            mention = f" (<@{owner.profile.slack_user_id}>)"
+        if pol:
+            owner = getattr(pol, "owner", None)
+            if owner and hasattr(owner, "profile") and owner.profile.slack_user_id:
+                mention = f"<@{owner.profile.slack_user_id}> "
+
+        # If you want the mention to appear in the body, prepend it
+        if body and mention:
+            blocks[1] = {"type": "section", "text": {"type": "mrkdwn", "text": f"{mention}{body}"}}
+        elif mention and not body:
+            blocks.append({"type": "section", "text": {"type": "mrkdwn", "text": mention.strip()}})
+
 
         # Footer/context
         if added_any:

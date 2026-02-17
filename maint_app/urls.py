@@ -27,6 +27,8 @@ urlpatterns = [
     path("api/workorders/", include("apps.workorders.urls")),
     path("api/checklists/", include("apps.checklists.urls")),
     path("api/calendar/", include("apps.calendarfeed.urls")),
+    path("dashboard/", include("apps.dashboard.urls")),
+
 
     # Non-API pages
     path("calendar/", include("apps.calendarfeed.urls")),
