@@ -2,10 +2,32 @@
 {% load static %}
 
 {% block branding %}
-<h1 id="site-name" style="display:flex; align-items:center; gap:12px;">
-  <a href="{% url 'admin:index' %}" style="display:flex; align-items:center; gap:12px; text-decoration:none;">
-    <img src="{% static 'images/logo.png' %}" alt="FieldAI" style="height:28px; width:auto;">
-    <span>Maintenance Scheduler Admin</span>
+<div style="display:flex; justify-content:space-between; align-items:center; width:100%;">
+  
+  <!-- Left: Logo + Admin Title -->
+  <h1 id="site-name" style="display:flex; align-items:center; gap:12px; margin:0;">
+    <a href="{% url 'admin:index' %}" style="display:flex; align-items:center; gap:12px; text-decoration:none;">
+      <img src="{% static 'images/logo.png' %}" alt="FieldAI" style="height:28px; width:auto;">
+      <span>Maintenance Scheduler Admin</span>
+    </a>
+  </h1>
+
+  <!-- Right: Dashboard Button -->
+  <a href="/dashboard/"
+     style="
+        padding:6px 14px;
+        border-radius:20px;
+        background-color:#F97316;
+        color:white;
+        font-size:13px;
+        font-weight:600;
+        text-decoration:none;
+        transition:all 0.2s ease;
+     "
+     onmouseover="this.style.opacity='0.85'"
+     onmouseout="this.style.opacity='1'">
+     Dashboard
   </a>
-</h1>
+
+</div>
 {% endblock %}
