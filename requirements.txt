@@ -16,3 +16,4 @@ slack_sdk>=3.27.1
  notion-client==2.2.1
 PyPDF2==3.0.1
 reportlab==4.2.5
+rich>=13.0.0
