@@ -1,4 +1,5 @@
 <!doctype html>
+{%load static%}
 <html>
 <head>
   <meta charset="utf-8"/>
@@ -21,10 +22,22 @@
   </style>
 </head>
 <body>
-  <h1>Maintenance Dashboard</h1>
-  <div class="sub">
-    KPIs + trends (last {{ weekly_lookback_weeks }} weeks, Top {{ top_n }} policies, completions last {{ completed_lookback_days }} days)
+    <div style="display:flex; align-items:center; gap:16px; margin-bottom: 6px;">
+    <img
+      src="{% static 'images/logo.png' %}"
+      alt="FieldAI"
+      style="height:46px; width:auto;"
+    />
+    <div>
+      <h1 style="margin:0;">Maintenance Dashboard</h1>
+      <div class="sub" style="margin:0;">
+        KPIs + trends (last {{ weekly_lookback_weeks }} weeks, Top {{ top_n }} policies, completions last {{ completed_lookback_days }} days)
+      </div>
+    </div>
   </div>
+    <div style="height:12px;"></div>
+
+
 
   <div class="grid">
     <div class="card">
@@ -84,33 +97,47 @@
     const topCounts = JSON.parse(document.getElementById("top-policy-counts").textContent);
 
     new Chart(document.getElementById("weeklyChart"), {
-      type: "line",
-      data: {
-        labels: weeklyLabels,
-        datasets: [{ label: "Completed", data: weeklyCounts, tension: 0.25 }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
-        scales: { y: { beginAtZero: true } }
-      }
-    });
+  type: "line",
+  data: {
+    labels: weeklyLabels,
+    datasets: [{
+      label: "Completed",
+      data: weeklyCounts,
+      tension: 0.25,
+      borderColor: "#F97316",          // orange
+      pointBackgroundColor: "#F97316", // orange points
+      backgroundColor: "rgba(249,115,22,0.12)", // subtle fill
+      fill: true
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: { y: { beginAtZero: true } }
+  }
+});
 
-    new Chart(document.getElementById("topPoliciesChart"), {
-      type: "bar",
-      data: {
-        labels: topLabels,
-        datasets: [{ label: "Completed", data: topCounts }]
-      },
-      options: {
-        indexAxis: "y",
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
-        scales: { x: { beginAtZero: true } }
-      }
-    });
+new Chart(document.getElementById("topPoliciesChart"), {
+  type: "bar",
+  data: {
+    labels: topLabels,
+    datasets: [{
+      label: "Completed",
+      data: topCounts,
+      backgroundColor: "rgba(249,115,22,0.25)",
+      borderColor: "#F97316",
+      borderWidth: 1
+    }]
+  },
+  options: {
+    indexAxis: "y",
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: { x: { beginAtZero: true } }
+  }
+});
   </script>
 </body>
 </html>
