@@ -36,12 +36,8 @@
       <div class="kpi-value">{{ kpi.total_policies }}</div>
     </div>
     <div class="card">
-      <div class="kpi-label">Open work orders</div>
-      <div class="kpi-value">{{ kpi.open_workorders }}</div>
-    </div>
-    <div class="card">
-      <div class="kpi-label">Overdue (open)</div>
-      <div class="kpi-value">{{ kpi.overdue_workorders }}</div>
+        <div class="kpi-label">Completed cycles ({{ completed_lookback_days }}d)</div>
+        <div class="kpi-value">{{ kpi.completed_last_30d }}</div>
     </div>
     <div class="card">
       <div class="kpi-label">Due soon ({{ due_soon_days }}d)</div>
