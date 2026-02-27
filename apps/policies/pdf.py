@@ -1,5 +1,7 @@
 # apps/policies/pdf.py
 from io import BytesIO
+from reportlab.platypus import Image
+from django.contrib.staticfiles import finders
 from reportlab.platypus import (
     SimpleDocTemplate,
     Paragraph,
@@ -27,6 +29,30 @@ class Checkbox(Flowable):
         c = self.canv
         s = self.size
         c.rect(0, 0, s, s)
+
+def draw_header(canvas, doc):
+    logo_path = finders.find("images/logo.png")
+    if not logo_path:
+        return
+
+    logo_width = 110
+    logo_height = 40
+
+    page_width, page_height = letter
+
+    # Position in top right corner
+    x = page_width - doc.rightMargin - logo_width
+    y = page_height - 60  # vertical offset from top
+
+    canvas.drawImage(
+        logo_path,
+        x,
+        y,
+        width=logo_width,
+        height=logo_height,
+        preserveAspectRatio=True,
+        mask='auto'
+    )
         
 
 def generate_policy_pdf(policy) -> bytes:
@@ -162,5 +188,5 @@ def generate_policy_pdf(policy) -> bytes:
 
     elements.append(signature_table)
 
-    doc.build(elements)
+    doc.build(elements, onFirstPage=draw_header, onLaterPages=draw_header)
     return buf.getvalue()
