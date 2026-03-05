@@ -5,7 +5,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("checklists", "0012_checklistitem_kit_items.py"),  # <-- change this
+        ("checklists", "0012_checklistitem_kit_items"),  # <-- change this
     ]
 
     operations = [
