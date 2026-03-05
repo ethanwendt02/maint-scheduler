@@ -213,6 +213,10 @@ LOGGING = {
     },
 }
 
+# Allow large checklist template edits (many dynamic form fields)
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 5000          # default is 1000
+DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10 MB, default is ~2.5 MB
+
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
