@@ -2,8 +2,20 @@ from django.conf import settings
 from django.db import migrations, models
 
 
-RUNSQL_SAFE = migrations.RunSQL(
-    sql=r"""
+def run_postgres_only(apps, schema_editor):
+    if schema_editor.connection.vendor != "postgresql":
+        return
+    schema_editor.execute(r""" ... your SQL ... """)
+
+
+RUNSQL_SAFE = migrations.RunPython(run_postgres_only, migrations.RunPython.noop)
+
+def run_postgres_only(apps, schema_editor):
+    # Only run the big idempotent SQL on Postgres
+    if schema_editor.connection.vendor != "postgresql":
+        return
+
+    schema_editor.execute(r"""
     -- ===== ChecklistRun: remove legacy columns if present =====
     ALTER TABLE checklists_checklistrun
         DROP COLUMN IF EXISTS notes,
@@ -75,9 +87,7 @@ RUNSQL_SAFE = migrations.RunSQL(
                 ON checklists_checklistitem(template_id);
         END IF;
     END$$;
-    """,
-    reverse_sql=migrations.RunSQL.noop,
-)
+    """)
 
 
 class Migration(migrations.Migration):
