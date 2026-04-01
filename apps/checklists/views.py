@@ -33,16 +33,16 @@ class ChecklistRunViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     @action(detail=False, methods=["get"], url_path="dashboard-metrics")
-def dashboard_metrics(self, request):
-    total_deployed = Robot.objects.filter(status="active").count()
+    def dashboard_metrics(self, request):
+        total_deployed = Robot.objects.filter(status="active").count()
 
-    robots_cleaned = (
-        ChecklistRun.objects
-        .filter(work_order__robot_id__isnull=False)
-        .values("work_order__robot_id")
-        .distinct()
-        .count()
-    )
+        robots_cleaned = (
+            ChecklistRun.objects
+            .filter(work_order__robot_id__isnull=False)
+            .values("work_order__robot_id")
+            .distinct()
+            .count()
+        )
 
     robots_needing_cleaning = max(total_deployed - robots_cleaned, 0)
 
