@@ -25,8 +25,8 @@ def metrics_dashboard(request):
 
     robots_cleaned = (
         MaintenanceRecord.objects
-        .filter(robot_id__isnull=False)
-        .values("robot_id")
+        .filter(work_order__robot_id__isnull=False)
+        .values("work_order__robot_id")
         .distinct()
         .count()
     )
