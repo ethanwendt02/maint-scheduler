@@ -44,15 +44,15 @@ class ChecklistRunViewSet(viewsets.ModelViewSet):
             .count()
         )
 
-    robots_needing_cleaning = max(total_deployed - robots_cleaned, 0)
+        robots_needing_cleaning = max(total_deployed - robots_cleaned, 0)
 
-    return Response({
-        "counts": {
-            "total_deployed": total_deployed,
-            "robots_cleaned": robots_cleaned,
-            "robots_needing_cleaning": robots_needing_cleaning,
-        }
-    })
+        return Response({
+            "counts": {
+                "total_deployed": total_deployed,
+                "robots_cleaned": robots_cleaned,
+                "robots_needing_cleaning": robots_needing_cleaning,
+            }
+        })
 
 class UploadChecklistForm(forms.ModelForm):
     class Meta:
